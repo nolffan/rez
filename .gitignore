@@ -3,6 +3,7 @@
 /isos/*.iso
 /isos/*.part
 /isos/ps2/
+/isos/mac/
 # Installed games (./install-games.sh) and scratch
 /games/
 /.work/

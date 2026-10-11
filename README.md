@@ -5,11 +5,11 @@ Lives Forever*, *No One Lives Forever 2* and *Contract J.A.C.K.* from
 [archive.org/details/nolf-pc-redump](https://archive.org/details/nolf-pc-redump),
 and installs each release from them the way its own setup program would:
 one directory per release, holding everything the game runs with. It also
-fetches the two discs of NOLF's PlayStation 2 port, which are kept as
-images only.
+fetches the discs of NOLF's PlayStation 2 port and of the Mac releases of
+NOLF and NOLF2, which are kept as images only.
 
 ```sh
-./fetch-isos.sh        # ~15.9 GB of zips -> isos/, checked, converted to .iso
+./fetch-isos.sh        # ~18.0 GB of zips -> isos/, checked, converted to .iso
 ./install-games.sh     # -> games/<release>/ (~14 GB for all ten), each checked
 ```
 
@@ -26,7 +26,7 @@ Requirements: `bash`, `curl`, `sha256sum`, `python3`, and a C compiler,
 
 ## isos/
 
-`isos/SHA256SUMS` lists the 22 zips exactly as archive.org serves them.
+`isos/SHA256SUMS` lists the 25 zips exactly as archive.org serves them.
 `fetch-isos.sh` checks every zip against it before using it. Each PC zip
 holds a redump `.bin`/`.cue` with raw 2352-byte sectors. `tools/bin2iso.py` reads the
 data track straight out of the zip and writes a plain 2048-byte-sector `.iso`
@@ -48,6 +48,25 @@ refuses these names.
 | `nolf-ps2-eu` | Operative, The - No One Lives Forever (Europe) (En,Fr,De,Es,It) |
 
 `./fetch-isos.sh nolf-ps2-usa nolf-ps2-eu` fetches just these two.
+
+### Mac
+
+The MacPlay releases' redump images come from
+[REDUMP_Apple_-_Macintosh](https://archive.org/details/REDUMP_Apple_-_Macintosh)
+and are kept in `isos/mac/`. Redump names them like PC discs, and NOLF2's
+are named exactly like the PC NOLF2 USA ones, hence the subdirectory. They
+are `.bin`/`.cue` like the PC zips and are converted the same way. The
+`.iso` is then the disc's plain data, but not an ISO 9660 filesystem: each
+disc has an Apple partition map with one HFS volume, which needs an HFS
+reader (e.g. `hfsutils`, or Linux's `hfs`/`hfsplus` with a partition offset).
+Every image's `.bin` matches redump's SHA-1. Redump has only NOLF's game
+disc, and no European Mac discs. As with the PS2 discs, `install-games.sh`
+refuses these names.
+
+| Name | Discs |
+|---|---|
+| `nolf-mac-usa` | Operative, The - No One Lives Forever (USA) (Disc 1) (Game Disc) |
+| `nolf2-mac-usa` | No One Lives Forever 2 - A Spy in H.A.R.M.'s Way (USA) (Disc 1) + (Disc 2) |
 
 ## games/
 

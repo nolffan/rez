@@ -43,8 +43,9 @@ with nothing recorded yet is installed with a warning.
 Every directory gets MANIFEST.txt (where each file came from) and
 install.reg: the registry values setup writes, for `wine regedit install.reg`.
 
-nolf-ps2-usa and nolf-ps2-eu, the PlayStation 2 discs, are listed only so
-that fetch-isos.sh can fetch them by name; they are not installed.
+nolf-ps2-usa and nolf-ps2-eu (the PlayStation 2 discs) and nolf-mac-usa
+and nolf2-mac-usa (the Mac discs) are listed only so that fetch-isos.sh can
+fetch them by name; they are not installed.
 """
 import fnmatch
 import hashlib
@@ -82,6 +83,9 @@ CJ_EU = ["Contract J.A.C.K. (Europe) (Disc 1)", "Contract J.A.C.K. (Europe) (Dis
 # redump names can be the same as the PC discs').
 PS2_USA = "ps2/Operative, The - No One Lives Forever (USA)"
 PS2_EU = "ps2/Operative, The - No One Lives Forever (Europe) (En,Fr,De,Es,It)"
+MAC_NOLF1 = "mac/Operative, The - No One Lives Forever (USA) (Disc 1) (Game Disc)"
+MAC_NOLF2 = ["mac/No One Lives Forever 2 - A Spy in H.A.R.M.'s Way (USA) (Disc 1)",
+             "mac/No One Lives Forever 2 - A Spy in H.A.R.M.'s Way (USA) (Disc 2)"]
 
 NOLF1_KEY = r"Software\Monolith Productions\No One Lives Forever\1.0"
 NOLF2_KEY = r"SOFTWARE\Monolith Productions\No One Lives Forever 2\1.0"
@@ -112,13 +116,16 @@ EXTRA = {
     f"nolf-eu-{code}": ("is5", [NOLF1_EU_1, NOLF1_EU_2], {"lang": lang})
     for code, lang in (("fr", "French"), ("de", "German"), ("es", "Spanish"), ("sv", "Swedish"))
 }
-# The PlayStation 2 port: one DVD each. There is nothing to install, so
-# these only name the images for fetch-isos.sh.
-CONSOLE = {
-    "nolf-ps2-usa": ("ps2", [PS2_USA], {}),
-    "nolf-ps2-eu":  ("ps2", [PS2_EU], {}),
+# The PlayStation 2 port (one DVD each) and the Mac releases (MacPlay; only
+# NOLF's game disc is dumped). These are not installed: they only name the
+# images for fetch-isos.sh.
+OTHER_PLATFORMS = {
+    "nolf-ps2-usa":  ("ps2", [PS2_USA], {}),
+    "nolf-ps2-eu":   ("ps2", [PS2_EU], {}),
+    "nolf-mac-usa":  ("mac", [MAC_NOLF1], {}),
+    "nolf2-mac-usa": ("mac", MAC_NOLF2, {}),
 }
-ALL = {**RELEASES, **EXTRA, **CONSOLE}
+ALL = {**RELEASES, **EXTRA, **OTHER_PLATFORMS}
 
 
 class Disc:
@@ -333,8 +340,8 @@ def main():
             sys.exit(__doc__)
         outdir = Path(args[1])
         names = args[2:] or [n for n in ALL if (outdir / n).is_dir()]
-        if any(n in CONSOLE for n in names):
-            sys.exit("install: the PlayStation 2 discs are not installed")
+        if any(n in OTHER_PLATFORMS for n in names):
+            sys.exit("install: the PlayStation 2 and Mac discs are not installed")
         if not names:
             sys.exit(f"install: nothing installed in {outdir}")
         bad = 0
@@ -356,8 +363,8 @@ def main():
     for name in names:
         if name not in ALL:
             sys.exit(f"install: unknown release {name} (see --list)")
-        if name in CONSOLE:
-            sys.exit(f"install: {name} is a PlayStation 2 disc; there is nothing to install")
+        if name in OTHER_PLATFORMS:
+            sys.exit(f"install: {name} is not a PC release; there is nothing to install")
     outdir.mkdir(parents=True, exist_ok=True)
     for name in names:
         final = outdir / name

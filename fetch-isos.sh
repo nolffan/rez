@@ -4,7 +4,9 @@
 # .bin/.cue into a plain 2048-byte-sector .iso beside it. The PC discs come
 # from https://archive.org/details/nolf-pc-redump; NOLF's PlayStation 2 discs
 # (isos/ps2/, whose zips hold an .iso that is just copied out) from
-# https://archive.org/details/PS2-Redump-2024-Individual-Games-Part11.
+# https://archive.org/details/PS2-Redump-2024-Individual-Games-Part11; and the
+# Mac discs of NOLF and NOLF2 (isos/mac/) from
+# https://archive.org/details/REDUMP_Apple_-_Macintosh.
 #
 #   ./fetch-isos.sh [name...]            fetch whatever is missing, verify, convert
 #   ./fetch-isos.sh --verify [name...]   only check the zips against SHA256SUMS
@@ -20,6 +22,7 @@ ROOT=$(cd "$(dirname "$0")" && pwd)
 ISOS="$ROOT/isos"
 BASE="https://archive.org/download/nolf-pc-redump/NOLF-PC-REDUMP"
 PS2_BASE="https://archive.org/download/PS2-Redump-2024-Individual-Games-Part11"
+MAC_BASE="https://archive.org/download/REDUMP_Apple_-_Macintosh"
 JOBS=${JOBS:-4}
 
 die() { echo "fetch-isos: $*" >&2; exit 1; }
@@ -59,6 +62,7 @@ fetch_one() {
     [ -f "$ISOS/$z" ] && return 0
     case "$z" in
         ps2/*) url="$PS2_BASE/$(urlencode "${z#*/}")" ;;
+        mac/*) url="$MAC_BASE/$(urlencode "${z#*/}")" ;;
         *)     url="$BASE/$(urlencode "$z")" ;;
     esac
     mkdir -p "$(dirname "$ISOS/$z")"
@@ -68,7 +72,7 @@ fetch_one() {
     echo "<- $z"
 }
 export -f fetch_one urlencode
-export ISOS BASE PS2_BASE
+export ISOS BASE PS2_BASE MAC_BASE
 
 echo "== fetching ${#ZIPS[@]} zips into $ISOS ($JOBS at a time)"
 printf '%s\0' "${ZIPS[@]}" | xargs -0 -n1 -P "$JOBS" bash -c 'fetch_one "$1"' _

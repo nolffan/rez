@@ -8,16 +8,16 @@ one directory per release, holding everything the game runs with.
 
 ```sh
 ./fetch-isos.sh        # ~10.6 GB of zips -> isos/, checked, converted to .iso
-./install-games.sh     # -> games/<release>/ (~14 GB for all ten)
-cd games && sha256sum -c --ignore-missing ../games.sha256
+./install-games.sh     # -> games/<release>/ (~14 GB for all ten), each checked
 ```
 
 Both scripts take release names (the table below) to work on just those.
 `./fetch-isos.sh nolf-eu-goty && ./install-games.sh nolf-eu-goty` downloads
 only that release's two discs and installs it. Both are re-runnable: a
 finished step is not repeated, and an interrupted download resumes.
-`--force` reinstalls a release that is already installed.
-`tools/install.py --list` shows each release's discs.
+`--force` reinstalls a release that is already installed, and
+`./install-games.sh --verify [name...]` re-checks installed ones (by default,
+every one in `games/`). `tools/install.py --list` shows each release's discs.
 
 Requirements: `bash`, `curl`, `sha256sum`, `python3`, and a C compiler,
 `make` and zlib headers for `tools/unshield`.
@@ -54,9 +54,13 @@ writes, pointing at the directory's own path through Wine's `Z:` drive.
 Import it with `wine regedit install.reg`. It writes both the native and the
 `Wow6432Node` view, so it works in 32- and 64-bit prefixes.
 
-`games.sha256` holds the SHA-256 of every installed file except
-`install.reg`, which contains the directory's path. A clean reinstall
-reproduces it exactly.
+`games.sha256` holds the SHA-256 of every installed file of every release
+except `install.reg`, which contains the directory's path. Each install is
+checked against it before it is moved into place. Every recorded file must be
+present with its hash, and there must be no other files. A release that does
+not match is left in `games/.<name>.tmp`, and the script fails. Playing the
+game changes its directory (the engine rewrites `autoexec.cfg` and writes
+saves), so `--verify` will then report those files.
 
 ### What each installer does
 

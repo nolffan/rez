@@ -3,6 +3,8 @@
 would, into one directory per release.
 
   install.py [--force] <outdir> [name...]   install (default: every release)
+  install.py --verify <outdir> [name...]    check installed releases (default:
+                                            every one present in <outdir>)
   install.py --list                         list the releases and their discs
   install.py --discs name...                the disc images those releases
                                             use (one per line; fetch-isos.sh)
@@ -32,10 +34,17 @@ say it copies (see README.md for how that was read off the discs):
           look first), and the uncompressed files linked to disc 1 (NOLF2's
           launcher and Data\\GAME.REZ).
 
+A new install is checked against games.sha256 before it is renamed into
+place: every file recorded for the release must be there with its recorded
+hash, and nothing else may be (install.reg, which holds the directory's own
+path, is not recorded). A release that fails is left in .<name>.tmp; one
+with nothing recorded yet is installed with a warning.
+
 Every directory gets MANIFEST.txt (where each file came from) and
 install.reg: the registry values setup writes, for `wine regedit install.reg`.
 """
 import fnmatch
+import hashlib
 import os
 import shutil
 import subprocess
@@ -48,6 +57,7 @@ from isoextract import Iso  # noqa: E402
 ROOT = Path(__file__).resolve().parent.parent
 ISOS = ROOT / "isos"
 UNSHIELD = ROOT / "tools" / "unshield" / "unshield"
+SUMS = ROOT / "games.sha256"
 
 NOLF1_USA_1 = "Operative, The - No One Lives Forever (USA) (Disc 1)"
 NOLF1_USA_2 = "Operative, The - No One Lives Forever (USA) (Disc 2)"
@@ -253,6 +263,44 @@ def install_cab(inst, discs, key, region, nolf2=False, **_):
 INSTALLERS = {"is5": install_is5, "goty": install_goty, "cab": install_cab}
 
 
+def recorded(name):
+    """{path inside the release: sha256} from games.sha256."""
+    out = {}
+    with open(SUMS) as f:
+        for line in f:
+            digest, path = line.rstrip("\n").split("  ", 1)
+            if path.startswith(name + "/"):
+                out[path[len(name) + 1:]] = digest
+    return out
+
+
+def sha256(path):
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        while chunk := f.read(1 << 20):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def verify(name, d):
+    """Check directory `d` (an install of `name`) against games.sha256: the
+    same files, byte for byte. Prints what differs; True if nothing does,
+    None if nothing is recorded for `name` (a release added since)."""
+    want = recorded(name)
+    if not want:
+        print(f"   {name}: no hashes recorded in {SUMS.name} -- NOT verified")
+        return None
+    have = {str(f.relative_to(d)) for f in d.rglob("*") if f.is_file()} - {"install.reg"}
+    problems = [f"missing  {p}" for p in sorted(want.keys() - have)]
+    problems += [f"extra    {p}" for p in sorted(have - want.keys())]
+    problems += [f"changed  {p}" for p in sorted(want.keys() & have) if sha256(d / p) != want[p]]
+    for line in problems:
+        print(f"   {name}: {line}")
+    if not problems:
+        print(f"   {name}: all {len(want)} files match {SUMS.name}")
+    return not problems
+
+
 def main():
     args = sys.argv[1:]
     if args == ["--list"]:
@@ -267,6 +315,23 @@ def main():
             out += [d for d in ALL[name][1] if d not in out]
         print("\n".join(out))
         return
+    if args[:1] == ["--verify"]:
+        if len(args) < 2:
+            sys.exit(__doc__)
+        outdir = Path(args[1])
+        names = args[2:] or [n for n in ALL if (outdir / n).is_dir()]
+        if not names:
+            sys.exit(f"install: nothing installed in {outdir}")
+        bad = 0
+        for name in names:
+            if name not in ALL:
+                sys.exit(f"install: unknown release {name} (see --list)")
+            if not (outdir / name).is_dir():
+                print(f"   {name}: not installed in {outdir}")
+                bad += 1
+            elif verify(name, outdir / name) is not True:
+                bad += 1
+        sys.exit(1 if bad else 0)
     force = "--force" in args
     args = [a for a in args if a != "--force"]
     if not args:
@@ -289,6 +354,8 @@ def main():
         print(f"== {name} ({kind}: {' + '.join(disc_names)})", flush=True)
         inst = Install(name, tmp)
         n = INSTALLERS[kind](inst, [Disc(d) for d in disc_names], **opts)
+        if verify(name, tmp) is False:
+            sys.exit(f"install: {name} does not match {SUMS.name}; left in {tmp}")
         # install.reg names the final path, not the .tmp one.
         if final.exists():
             shutil.rmtree(final)

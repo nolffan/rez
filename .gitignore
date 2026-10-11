@@ -1,0 +1,11 @@
+# Disc images and their zips (fetched by ./fetch-isos.sh; isos/SHA256SUMS is tracked)
+/isos/*.zip
+/isos/*.iso
+/isos/*.part
+# Installed games (./install-games.sh) and scratch
+/games/
+/.work/
+# Built from tools/unshield's sources
+/tools/unshield/unshield
+/tools/unshield/unshield-deobfuscate
+__pycache__/

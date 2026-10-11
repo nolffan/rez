@@ -140,6 +140,26 @@ wine lithtech.exe -rez nolf.rez -rez nolf2.rez -rez nolfdll.rez -rez nolfl.rez -
     ++windowed 1 +runworld 'Worlds\T01S01'
 ```
 
+## Demos, patches and map packs
+
+`demos/`, `patches/` and `mappacks/` hold the released demos, updates and
+map packs. Each one (an installer `.exe`, or an unpacked map pack's folder)
+is kept as a `.tar.xz` split into chunks of at most 45,000,000 bytes:
+`<item>.tar.xz.c001`, `.c002`, and so on. The chunks are what is committed.
+
+```sh
+./assemble-artifacts.sh                 # every archive -> artifacts/<category>/<item>.tar.xz
+./assemble-artifacts.sh demos           # one category, or one item: si_nolf2_demo.exe
+tar -xJf artifacts/demos/si_nolf2_demo.exe.tar.xz -C <dir>
+```
+
+Each assembled archive is checked against `artifacts/SHA256SUMS`. A missing
+or damaged chunk fails the check and nothing is written.
+`tools/pack-artifacts.sh <item>...` makes the chunks for a new or changed
+item and records its archive's hash. The archives carry no owner names, and
+every file in them is dated 1970-01-01, so they say nothing about who
+packed them or when. Packing an item again gives the same bytes.
+
 ## tools/
 
 | Tool | |
@@ -147,4 +167,5 @@ wine lithtech.exe -rez nolf.rez -rez nolf2.rez -rez nolfdll.rez -rez nolfl.rez -
 | `bin2iso.py` | redump `.zip`/`.cue` → `.iso` (the first data track's user data) |
 | `isoextract.py` | ISO 9660 / Joliet reader, from `~/src/nolfsrc/tools` |
 | `install.py` | the installers above; `--list` shows the releases and their discs |
+| `pack-artifacts.sh` | an item of `demos/`, `patches/` or `mappacks/` → chunked `.tar.xz` (above) |
 | `unshield/` | [unshield](https://github.com/twogood/unshield) 1.5.1 (MIT), vendored with a plain Makefile in place of CMake |

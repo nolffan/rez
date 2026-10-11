@@ -9,3 +9,14 @@
 /tools/unshield/unshield
 /tools/unshield/unshield-deobfuscate
 __pycache__/
+# Demos, patches and map packs: only their archives' chunks are tracked
+# (tools/pack-artifacts.sh); ./assemble-artifacts.sh rebuilds the archives
+# in artifacts/, of which only SHA256SUMS is tracked.
+/demos/*
+/patches/*
+/mappacks/*
+!/demos/*.tar.xz.c[0-9][0-9][0-9]
+!/patches/*.tar.xz.c[0-9][0-9][0-9]
+!/mappacks/*.tar.xz.c[0-9][0-9][0-9]
+/artifacts/*
+!/artifacts/SHA256SUMS

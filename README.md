@@ -3,14 +3,14 @@
 Fetches the redump images of every PC release of *The Operative: No One
 Lives Forever*, *No One Lives Forever 2* and *Contract J.A.C.K.* from
 [archive.org/details/nolf-pc-redump](https://archive.org/details/nolf-pc-redump),
-and installs each release from them the way its own setup program would:
-one directory per release, holding everything the game runs with. It also
-fetches the discs of NOLF's PlayStation 2 port and of the Mac releases of
-NOLF and NOLF2, which are kept as images only.
+and of the Mac releases of NOLF and NOLF2, and installs each release from
+them the way its own setup program would: one directory per release,
+holding everything the game runs with. It also fetches the discs of NOLF's
+PlayStation 2 port, which are kept as images only.
 
 ```sh
 ./fetch-isos.sh        # ~18.0 GB of zips -> isos/, checked, converted to .iso
-./install-games.sh     # -> games/<release>/ (~14 GB for all ten), each checked
+./install-games.sh     # -> games/<release>/ (~17 GB for all twelve), each checked
 ```
 
 Both scripts take release names (the table below) to work on just those.
@@ -57,16 +57,11 @@ and are kept in `isos/mac/`. Redump names them like PC discs, and NOLF2's
 are named exactly like the PC NOLF2 USA ones, hence the subdirectory. They
 are `.bin`/`.cue` like the PC zips and are converted the same way. The
 `.iso` is then the disc's plain data, but not an ISO 9660 filesystem: each
-disc has an Apple partition map with one HFS volume, which needs an HFS
-reader (e.g. `hfsutils`, or Linux's `hfs`/`hfsplus` with a partition offset).
-Every image's `.bin` matches redump's SHA-1. Redump has only NOLF's game
-disc, and no European Mac discs. As with the PS2 discs, `install-games.sh`
-refuses these names.
-
-| Name | Discs |
-|---|---|
-| `nolf-mac-usa` | Operative, The - No One Lives Forever (USA) (Disc 1) (Game Disc) |
-| `nolf2-mac-usa` | No One Lives Forever 2 - A Spy in H.A.R.M.'s Way (USA) (Disc 1) + (Disc 2) |
+disc has an Apple partition map with one volume, classic HFS on NOLF's and
+HFS+ (wrapped in HFS) on NOLF2's. `tools/hfsextract.py` reads them. Every
+image's `.bin` matches redump's SHA-1. Redump has only NOLF's game disc,
+and no European Mac discs. They are installed as `nolf-mac-usa` and
+`nolf2-mac-usa` (below).
 
 ## games/
 
@@ -82,18 +77,21 @@ refuses these names.
 | `nolf2-de` | NOLF2 (Germany) 1 + 2 | InstallShield 6 cabinets |
 | `contract-jack-us` | Contract J.A.C.K. (USA) 1 + 2 | InstallShield 6 cabinets |
 | `contract-jack-eu` | Contract J.A.C.K. (Europe) 1 + 2 | InstallShield 6 cabinets |
+| `nolf-mac-usa` | NOLF (USA) Mac game disc | Installer VISE |
+| `nolf2-mac-usa` | NOLF2 (USA) Mac 1 + 2 | Installer VISE, two segments |
 
 `nolf-eu-fr`, `nolf-eu-de`, `nolf-eu-es` and `nolf-eu-sv` are the other
 languages of the European NOLF discs. They are installed only when named.
 
 Each directory also has a `MANIFEST.txt`, recording which image and path every
-file came from. It also has an `install.reg` with the registry values setup
-writes, pointing at the directory's own path through Wine's `Z:` drive.
-Import it with `wine regedit install.reg`. It writes both the native and the
-`Wow6432Node` view, so it works in 32- and 64-bit prefixes.
+file came from. A PC release also has an `install.reg` with the registry
+values setup writes, pointing at the directory's own path through Wine's
+`Z:` drive. Import it with `wine regedit install.reg`. It writes both the
+native and the `Wow6432Node` view, so it works in 32- and 64-bit prefixes.
 
 `games.sha256` holds the SHA-256 of every installed file of every release
-except `install.reg`, which contains the directory's path. Each install is
+except `install.reg`, which contains the directory's path. A symbolic link
+(the Mac releases have some) is recorded by the SHA-256 of its target. Each install is
 checked against it before it is moved into place. Every recorded file must be
 present with its hash, and there must be no other files. A release that does
 not match is left in `games/.<name>.tmp`, and the script fails. Playing the
@@ -141,8 +139,44 @@ each setup's own script and media.
   Wine look first; the manifest marks them. The registry values are
   `InstallDir` and `NetRegionCode`, taken from the setup's string table.
 
+- **Installer VISE** (the Mac releases, MacPlay) is a single application
+  whose data fork is a compressed archive; NOLF2's continues in `NOLF2
+  Install Data` on disc 2. Each has one package, "Easy Install", which
+  installs the whole archive: its top folder (`No One Lives Forever`, `No
+  One Lives Forever 2`) is the install directory. `tools/hfsextract.py`
+  reads the installer off the disc and `tools/viseextract.py` unpacks it,
+  checking every file against the CRC-32 the archive records. There is no
+  registry; the manifest notes each file's archive path.
+
+  Mac files have two forks and Finder info (type, creator, flags). A file's
+  resource fork, or its type and creator, goes beside it in an AppleDouble
+  `._<name>` file, as Mac OS X itself writes them on volumes without forks.
+  Mac OS X symbolic links (stored as files of type `slnk`, creator `rhap`)
+  are made as links. Six of NOLF2's point at its developers' machines
+  (`/Users/Shared/Omni/...`) and dangle, as they would on a Mac.
+
 Left out: the DirectX, GameSpy Arcade, Windows Media and audio-codec
 installers that setup offers to run, and the Start-menu shortcuts.
+
+### The Mac releases
+
+Both are PowerPC builds, which no current Mac runs.
+
+- NOLF (2002, Hyperion's port) is Carbon CFM, for Mac OS 9 (with
+  CarbonLib) and Mac OS X. `NOLF/LithTech` is the engine, a PEF
+  application with an OpenGL (AGL) renderer, which the `No one lives
+  forever.app` launcher starts. The game modules (`cshell.dll`,
+  `object.lto`, ...) are PEF code too. CodeWarrior left each function's
+  name in its traceback table, so the engine's ~5,000 functions are named.
+  The game data is `NOLF/NOLF.REZ` and the loose `NOLF/NOLF/` folder.
+  `NolfServ` comes with its `.xSYM` debug symbols.
+- NOLF2 (2003) is Mach-O, for Mac OS X: `NOLF2.app/Contents/MacOS/NOLF2` is
+  the engine, linked against `OpenGL.framework`, with The Omni Group's
+  display code (`OGLDisplay` and friends, and the Omni frameworks beside
+  it). The game modules are bundles in `Contents/Resources` (`CShell.dll`,
+  `Object.lto`, ...). None of them is stripped: the engine has ~19,500
+  symbols, `Object.lto` ~23,000 and `CShell.dll` ~17,000. The data is
+  `data/*.REZ`.
 
 ### Notes on the discs
 
@@ -204,6 +238,8 @@ packed them or when. Packing an item again gives the same bytes.
 |---|---|
 | `bin2iso.py` | redump `.zip`/`.cue` → `.iso` (the first data track's user data, or a zipped `.iso` as is) |
 | `isoextract.py` | ISO 9660 / Joliet reader, from `~/src/nolfsrc/tools` |
+| `hfsextract.py` | HFS / HFS+ reader for the Mac images (`--list`, or extract with AppleDouble `._` files) |
+| `viseextract.py` | Installer VISE 8 archive reader (`--list`, or extract, CRC-checked); its docstring describes the format |
 | `install.py` | the installers above; `--list` shows the releases and their discs |
 | `pack-artifacts.sh` | an item of `demos/`, `patches/` or `mappacks/` → chunked `.tar.xz` (above) |
 | `unshield/` | [unshield](https://github.com/twogood/unshield) 1.5.1 (MIT), vendored with a plain Makefile in place of CMake |

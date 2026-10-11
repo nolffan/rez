@@ -15,7 +15,7 @@ existing one is left alone unless --force). Nothing is run from the discs:
 files are read straight out of the ISO 9660 images, and InstallShield
 cabinets are unpacked with tools/unshield.
 
-Three installers are reproduced -- each by what its own script and media
+Four installers are reproduced -- each by what its own script and media
 say it copies (see README.md for how that was read off the discs):
 
   is5     NOLF (2000). InstallShield 5. "Normal Install": the disc 1 GAME
@@ -43,9 +43,19 @@ with nothing recorded yet is installed with a warning.
 Every directory gets MANIFEST.txt (where each file came from) and
 install.reg: the registry values setup writes, for `wine regedit install.reg`.
 
-nolf-ps2-usa and nolf-ps2-eu (the PlayStation 2 discs) and nolf-mac-usa
-and nolf2-mac-usa (the Mac discs) are listed only so that fetch-isos.sh can
-fetch them by name; they are not installed.
+  vise    The Mac releases (MacPlay): an Installer VISE archive in the disc's
+          installer application (NOLF2's continued on disc 2 in "NOLF2
+          Install Data"), whose single "Easy Install" package installs the
+          whole archive. It is read off the HFS / HFS+ disc with
+          tools/hfsextract.py and unpacked with tools/viseextract.py: the
+          archive's top folder is the install directory. Resource forks and
+          Finder info go in AppleDouble ._ files; symbolic links are made.
+
+A Mac install gets MANIFEST.txt only. nolf-ps2-usa and nolf-ps2-eu (the
+PlayStation 2 discs) are listed only so that fetch-isos.sh can fetch them by
+name; they are not installed.
+
+games.sha256 records a symbolic link by the SHA-256 of its target.
 """
 import fnmatch
 import hashlib
@@ -56,7 +66,9 @@ import sys
 from pathlib import Path, PureWindowsPath
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from hfsextract import Volume  # noqa: E402
 from isoextract import Iso  # noqa: E402
+from viseextract import Archive  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 ISOS = ROOT / "isos"
@@ -111,19 +123,19 @@ RELEASES = {
     "nolf2-de":         ("cab", NOLF2_DE, {"key": NOLF2_KEY, "region": "DE", "nolf2": True}),
     "contract-jack-us": ("cab", CJ_USA, {"key": CJ_KEY, "region": "EN"}),
     "contract-jack-eu": ("cab", CJ_EU, {"key": CJ_KEY, "region": "EN"}),
+    "nolf-mac-usa":     ("vise", [MAC_NOLF1], {"segments": ["NOLF Installer"]}),
+    "nolf2-mac-usa":    ("vise", MAC_NOLF2, {"segments": ["Install No One Lives Forever 2",
+                                                         "NOLF2 Install Data"]}),
 }
 EXTRA = {
     f"nolf-eu-{code}": ("is5", [NOLF1_EU_1, NOLF1_EU_2], {"lang": lang})
     for code, lang in (("fr", "French"), ("de", "German"), ("es", "Spanish"), ("sv", "Swedish"))
 }
-# The PlayStation 2 port (one DVD each) and the Mac releases (MacPlay; only
-# NOLF's game disc is dumped). These are not installed: they only name the
-# images for fetch-isos.sh.
+# The PlayStation 2 port, one DVD each. There is nothing to install: these
+# only name the images for fetch-isos.sh.
 OTHER_PLATFORMS = {
-    "nolf-ps2-usa":  ("ps2", [PS2_USA], {}),
-    "nolf-ps2-eu":   ("ps2", [PS2_EU], {}),
-    "nolf-mac-usa":  ("mac", [MAC_NOLF1], {}),
-    "nolf2-mac-usa": ("mac", MAC_NOLF2, {}),
+    "nolf-ps2-usa": ("ps2", [PS2_USA], {}),
+    "nolf-ps2-eu":  ("ps2", [PS2_EU], {}),
 }
 ALL = {**RELEASES, **EXTRA, **OTHER_PLATFORMS}
 
@@ -162,6 +174,21 @@ class Disc:
         return p
 
 
+class MacDisc:
+    """One Mac disc image: an HFS or HFS+ volume."""
+
+    def __init__(self, name):
+        self.name = name
+        path = ISOS / f"{name}.iso"
+        if not path.exists():
+            sys.exit(f"install: missing {path} -- run ./fetch-isos.sh")
+        self.files = {e.path: e for e in Volume(str(path)).walk() if not e.is_dir}
+
+    def open(self, path):
+        """A file's data fork, as a seekable file object."""
+        return self.files[path].data.open()
+
+
 class Install:
     def __init__(self, name, target):
         self.name, self.target = name, target
@@ -178,14 +205,17 @@ class Install:
             self.put(disc, f"{folder}/{rel}" if folder else rel, f"{dest}/{rel}" if dest else rel)
         return len(files)
 
-    def write_extras(self, values, key):
-        """MANIFEST.txt, and install.reg with `values` under HKLM\\`key` --
-        both the native and the 32-bit (Wow6432Node) view, so it works in a
-        32- or 64-bit Wine prefix alike."""
+    def write_manifest(self):
         with open(self.target / "MANIFEST.txt", "w") as f:
             f.write(f"# {self.name}: where each file came from (<image>:<path>)\n")
             for rel in sorted(self.manifest, key=str.lower):
                 f.write(f"{rel}\t{self.manifest[rel]}\n")
+
+    def write_extras(self, values, key):
+        """MANIFEST.txt, and install.reg with `values` under HKLM\\`key` --
+        both the native and the 32-bit (Wow6432Node) view, so it works in a
+        32- or 64-bit Wine prefix alike."""
+        self.write_manifest()
         # Wine maps / to Z:, so this is the directory's own path.
         winpath = "Z:" + str(PureWindowsPath(self.target.parent.resolve() / self.name))
         lines = ["Windows Registry Editor Version 5.00", ""]
@@ -280,7 +310,44 @@ def install_cab(inst, discs, key, region, nolf2=False, **_):
     return n
 
 
-INSTALLERS = {"is5": install_is5, "goty": install_goty, "cab": install_cab}
+def install_vise(inst, discs, segments):
+    """Unpack the Installer VISE archive whose segments are the data forks
+    of `segments` (on the release's discs, in order); everything in the
+    archive's top folder goes into the install directory."""
+    forks = []
+    for name in segments:
+        disc = next((d for d in discs if name in d.files), None)
+        if disc is None:
+            sys.exit(f"install: {name} is on none of {inst.name}'s discs")
+        forks.append((disc, name))
+    arc = Archive([disc.open(name) for disc, name in forks])
+    source = f"{forks[0][0].name}.iso:{forks[0][1]}"
+    tops = {e.path.split("/", 1)[0] for e in arc.entries}
+    if len(tops) != 1:
+        sys.exit(f"install: {source}: the archive has {len(tops)} top folders")
+    top = tops.pop() + "/"
+    n = 0
+    for e in arc.entries:
+        if not e.path.startswith(top):
+            continue
+        rel = e.path[len(top):]
+        dest = inst.target / rel
+        if e.is_dir:
+            dest.mkdir(parents=True, exist_ok=True)
+            continue
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        arc.extract(e, str(dest))
+        inst.manifest[rel] = f"{source}[{e.path}]" + (" (symbolic link)" if e.is_symlink else "")
+        side = dest.with_name("._" + dest.name)
+        if side.exists():
+            inst.manifest[str(side.relative_to(inst.target))] = \
+                f"{source}[{e.path}] (resource fork, Finder info)"
+        n += 1
+    inst.write_manifest()
+    return n
+
+
+INSTALLERS = {"is5": install_is5, "goty": install_goty, "cab": install_cab, "vise": install_vise}
 
 
 def recorded(name):
@@ -295,11 +362,20 @@ def recorded(name):
 
 
 def sha256(path):
+    """A file's SHA-256; a symbolic link's is that of its target path."""
+    if os.path.islink(path):
+        return hashlib.sha256(os.readlink(path).encode()).hexdigest()
     h = hashlib.sha256()
     with open(path, "rb") as f:
         while chunk := f.read(1 << 20):
             h.update(chunk)
     return h.hexdigest()
+
+
+def installed(d):
+    """The files and symbolic links in install directory d, relative to it."""
+    return {str(f.relative_to(d)) for f in d.rglob("*")
+            if f.is_symlink() or f.is_file()} - {"install.reg"}
 
 
 def verify(name, d):
@@ -310,7 +386,7 @@ def verify(name, d):
     if not want:
         print(f"   {name}: no hashes recorded in {SUMS.name} -- NOT verified")
         return None
-    have = {str(f.relative_to(d)) for f in d.rglob("*") if f.is_file()} - {"install.reg"}
+    have = installed(d)
     problems = [f"missing  {p}" for p in sorted(want.keys() - have)]
     problems += [f"extra    {p}" for p in sorted(have - want.keys())]
     problems += [f"changed  {p}" for p in sorted(want.keys() & have) if sha256(d / p) != want[p]]
@@ -341,7 +417,7 @@ def main():
         outdir = Path(args[1])
         names = args[2:] or [n for n in ALL if (outdir / n).is_dir()]
         if any(n in OTHER_PLATFORMS for n in names):
-            sys.exit("install: the PlayStation 2 and Mac discs are not installed")
+            sys.exit("install: the PlayStation 2 discs are not installed")
         if not names:
             sys.exit(f"install: nothing installed in {outdir}")
         bad = 0
@@ -364,7 +440,7 @@ def main():
         if name not in ALL:
             sys.exit(f"install: unknown release {name} (see --list)")
         if name in OTHER_PLATFORMS:
-            sys.exit(f"install: {name} is not a PC release; there is nothing to install")
+            sys.exit(f"install: {name} is a PlayStation 2 disc; there is nothing to install")
     outdir.mkdir(parents=True, exist_ok=True)
     for name in names:
         final = outdir / name
@@ -377,7 +453,8 @@ def main():
         tmp.mkdir()
         print(f"== {name} ({kind}: {' + '.join(disc_names)})", flush=True)
         inst = Install(name, tmp)
-        n = INSTALLERS[kind](inst, [Disc(d) for d in disc_names], **opts)
+        disc_class = MacDisc if kind == "vise" else Disc
+        n = INSTALLERS[kind](inst, [disc_class(d) for d in disc_names], **opts)
         if verify(name, tmp) is False:
             sys.exit(f"install: {name} does not match {SUMS.name}; left in {tmp}")
         # install.reg names the final path, not the .tmp one.

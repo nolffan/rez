@@ -4,6 +4,8 @@ would, into one directory per release.
 
   install.py [--force] <outdir> [name...]   install (default: every release)
   install.py --list                         list the releases and their discs
+  install.py --discs name...                the disc images those releases
+                                            use (one per line; fetch-isos.sh)
 
 Each release is written to <outdir>/<name>/ (built in <outdir>/.<name>.tmp
 and renamed when complete, so a finished directory is always whole; an
@@ -256,6 +258,14 @@ def main():
     if args == ["--list"]:
         for name, (kind, discs, _o) in ALL.items():
             print(f"{name:<18} {kind:<5} " + " + ".join(discs))
+        return
+    if args[:1] == ["--discs"]:
+        out = []
+        for name in args[1:]:
+            if name not in ALL:
+                sys.exit(f"install: unknown release {name} (see --list)")
+            out += [d for d in ALL[name][1] if d not in out]
+        print("\n".join(out))
         return
     force = "--force" in args
     args = [a for a in args if a != "--force"]

@@ -12,9 +12,12 @@ one directory per release, holding everything the game runs with.
 cd games && sha256sum -c --ignore-missing ../games.sha256
 ```
 
-Both scripts are re-runnable. A finished step is not repeated, and an
-interrupted download resumes. `./install-games.sh nolf2-eu` installs one
-release. `--force` reinstalls one that is already installed.
+Both scripts take release names (the table below) to work on just those.
+`./fetch-isos.sh nolf-eu-goty && ./install-games.sh nolf-eu-goty` downloads
+only that release's two discs and installs it. Both are re-runnable: a
+finished step is not repeated, and an interrupted download resumes.
+`--force` reinstalls a release that is already installed.
+`tools/install.py --list` shows each release's discs.
 
 Requirements: `bash`, `curl`, `sha256sum`, `python3`, and a C compiler,
 `make` and zlib headers for `tools/unshield`.

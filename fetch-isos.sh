@@ -4,8 +4,12 @@
 # against isos/SHA256SUMS, and turn each zipped .bin/.cue into a plain
 # 2048-byte-sector .iso beside it.
 #
-#   ./fetch-isos.sh            fetch whatever is missing, verify, convert
-#   ./fetch-isos.sh --verify   only check the zips against SHA256SUMS
+#   ./fetch-isos.sh [name...]            fetch whatever is missing, verify, convert
+#   ./fetch-isos.sh --verify [name...]   only check the zips against SHA256SUMS
+#
+# With no names, every zip of the item; with release names (as
+# ./install-games.sh takes them, e.g. nolf-eu-goty -- `tools/install.py
+# --list` lists them), only the discs those releases are installed from.
 #
 # A rerun downloads nothing that is already there (and resumes partial files).
 set -euo pipefail
@@ -20,17 +24,30 @@ for t in curl sha256sum python3; do
     command -v "$t" >/dev/null || die "$t is required"
 done
 
+VERIFY_ONLY=0
+if [ "${1:-}" = "--verify" ]; then VERIFY_ONLY=1; shift; fi
+
 # The zips, in SHA256SUMS order; the names are the item's own.
 mapfile -t ZIPS < <(sed -n 's/^[0-9a-f]\{64\}  //p' "$ISOS/SHA256SUMS")
 [ ${#ZIPS[@]} -gt 0 ] || die "no entries in $ISOS/SHA256SUMS"
+if [ $# -gt 0 ]; then
+    discs=$(python3 -I "$ROOT/tools/install.py" --discs "$@") || exit 1
+    mapfile -t ZIPS < <(printf '%s\n' "$discs" | sed 's/$/.zip/')
+fi
+
+# The SHA256SUMS lines of the zips in ZIPS (each line is "<hash>  <name>").
+sums() {
+    printf '%s\n' "${ZIPS[@]}" | awk 'NR == FNR { want[$0]; next } substr($0, 67) in want' - "$ISOS/SHA256SUMS"
+}
 
 verify() {
-    echo "== checking zips against SHA256SUMS"
-    (cd "$ISOS" && sha256sum -c --quiet SHA256SUMS) || die "checksum mismatch (delete the bad zip and rerun)"
+    [ "$(sums | wc -l)" = ${#ZIPS[@]} ] || die "a requested zip is not in $ISOS/SHA256SUMS"
+    echo "== checking ${#ZIPS[@]} zips against SHA256SUMS"
+    (cd "$ISOS" && sums | sha256sum -c --quiet -) || die "checksum mismatch (delete the bad zip and rerun)"
     echo "== all ${#ZIPS[@]} zips OK"
 }
 
-if [ "${1:-}" = "--verify" ]; then verify; exit 0; fi
+if [ $VERIFY_ONLY = 1 ]; then verify; exit 0; fi
 
 urlencode() { python3 -I -c 'import sys, urllib.parse; print(urllib.parse.quote(sys.argv[1]))' "$1"; }
 

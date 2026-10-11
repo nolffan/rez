@@ -42,6 +42,9 @@ with nothing recorded yet is installed with a warning.
 
 Every directory gets MANIFEST.txt (where each file came from) and
 install.reg: the registry values setup writes, for `wine regedit install.reg`.
+
+nolf-ps2-usa and nolf-ps2-eu, the PlayStation 2 discs, are listed only so
+that fetch-isos.sh can fetch them by name; they are not installed.
 """
 import fnmatch
 import hashlib
@@ -75,6 +78,10 @@ NOLF2_DE = ["No One Lives Forever 2 - Agentin in geheimer Mission (Germany) (Dis
             "No One Lives Forever 2 - Agentin in geheimer Mission (Germany) (Disc 2)"]
 CJ_USA = ["Contract J.A.C.K. (USA) (Disc 1)", "Contract J.A.C.K. (USA) (Disc 2)"]
 CJ_EU = ["Contract J.A.C.K. (Europe) (Disc 1)", "Contract J.A.C.K. (Europe) (Disc 2)"]
+# Other platforms' images live in their own subdirectory of isos/ (their
+# redump names can be the same as the PC discs').
+PS2_USA = "ps2/Operative, The - No One Lives Forever (USA)"
+PS2_EU = "ps2/Operative, The - No One Lives Forever (Europe) (En,Fr,De,Es,It)"
 
 NOLF1_KEY = r"Software\Monolith Productions\No One Lives Forever\1.0"
 NOLF2_KEY = r"SOFTWARE\Monolith Productions\No One Lives Forever 2\1.0"
@@ -105,7 +112,13 @@ EXTRA = {
     f"nolf-eu-{code}": ("is5", [NOLF1_EU_1, NOLF1_EU_2], {"lang": lang})
     for code, lang in (("fr", "French"), ("de", "German"), ("es", "Spanish"), ("sv", "Swedish"))
 }
-ALL = {**RELEASES, **EXTRA}
+# The PlayStation 2 port: one DVD each. There is nothing to install, so
+# these only name the images for fetch-isos.sh.
+CONSOLE = {
+    "nolf-ps2-usa": ("ps2", [PS2_USA], {}),
+    "nolf-ps2-eu":  ("ps2", [PS2_EU], {}),
+}
+ALL = {**RELEASES, **EXTRA, **CONSOLE}
 
 
 class Disc:
@@ -320,6 +333,8 @@ def main():
             sys.exit(__doc__)
         outdir = Path(args[1])
         names = args[2:] or [n for n in ALL if (outdir / n).is_dir()]
+        if any(n in CONSOLE for n in names):
+            sys.exit("install: the PlayStation 2 discs are not installed")
         if not names:
             sys.exit(f"install: nothing installed in {outdir}")
         bad = 0
@@ -341,6 +356,8 @@ def main():
     for name in names:
         if name not in ALL:
             sys.exit(f"install: unknown release {name} (see --list)")
+        if name in CONSOLE:
+            sys.exit(f"install: {name} is a PlayStation 2 disc; there is nothing to install")
     outdir.mkdir(parents=True, exist_ok=True)
     for name in names:
         final = outdir / name

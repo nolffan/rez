@@ -4,10 +4,12 @@ Fetches the redump images of every PC release of *The Operative: No One
 Lives Forever*, *No One Lives Forever 2* and *Contract J.A.C.K.* from
 [archive.org/details/nolf-pc-redump](https://archive.org/details/nolf-pc-redump),
 and installs each release from them the way its own setup program would:
-one directory per release, holding everything the game runs with.
+one directory per release, holding everything the game runs with. It also
+fetches the two discs of NOLF's PlayStation 2 port, which are kept as
+images only.
 
 ```sh
-./fetch-isos.sh        # ~10.6 GB of zips -> isos/, checked, converted to .iso
+./fetch-isos.sh        # ~15.9 GB of zips -> isos/, checked, converted to .iso
 ./install-games.sh     # -> games/<release>/ (~14 GB for all ten), each checked
 ```
 
@@ -24,11 +26,28 @@ Requirements: `bash`, `curl`, `sha256sum`, `python3`, and a C compiler,
 
 ## isos/
 
-`isos/SHA256SUMS` lists the 20 zips exactly as archive.org serves them.
-`fetch-isos.sh` checks every zip against it before using it. Each zip holds a
-redump `.bin`/`.cue` with raw 2352-byte sectors. `tools/bin2iso.py` reads the
+`isos/SHA256SUMS` lists the 22 zips exactly as archive.org serves them.
+`fetch-isos.sh` checks every zip against it before using it. Each PC zip
+holds a redump `.bin`/`.cue` with raw 2352-byte sectors. `tools/bin2iso.py` reads the
 data track straight out of the zip and writes a plain 2048-byte-sector `.iso`
 beside it, under the same name.
+
+### PlayStation 2
+
+The PS2 port's redump images come from
+[PS2-Redump-2024-Individual-Games-Part11](https://archive.org/details/PS2-Redump-2024-Individual-Games-Part11).
+The [CG_Sony_PlayStation_2](https://archive.org/details/CG_Sony_PlayStation_2)
+item has only box and disc scans. They are kept in `isos/ps2/`. Each zip
+holds a plain DVD `.iso`, which `bin2iso.py` copies out unchanged; both
+match redump's SHA-1. There is nothing to install, so `install-games.sh`
+refuses these names.
+
+| Name | Disc |
+|---|---|
+| `nolf-ps2-usa` | Operative, The - No One Lives Forever (USA) |
+| `nolf-ps2-eu` | Operative, The - No One Lives Forever (Europe) (En,Fr,De,Es,It) |
+
+`./fetch-isos.sh nolf-ps2-usa nolf-ps2-eu` fetches just these two.
 
 ## games/
 
@@ -164,7 +183,7 @@ packed them or when. Packing an item again gives the same bytes.
 
 | Tool | |
 |---|---|
-| `bin2iso.py` | redump `.zip`/`.cue` → `.iso` (the first data track's user data) |
+| `bin2iso.py` | redump `.zip`/`.cue` → `.iso` (the first data track's user data, or a zipped `.iso` as is) |
 | `isoextract.py` | ISO 9660 / Joliet reader, from `~/src/nolfsrc/tools` |
 | `install.py` | the installers above; `--list` shows the releases and their discs |
 | `pack-artifacts.sh` | an item of `demos/`, `patches/` or `mappacks/` → chunked `.tar.xz` (above) |

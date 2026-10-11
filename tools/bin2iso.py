@@ -4,7 +4,9 @@
   bin2iso.py <image.zip|image.cue> <out.iso>
 
 Given a .zip (as archive.org serves them), the .cue and .bin are read
-straight out of it; nothing is unpacked to disk.
+straight out of it; nothing is unpacked to disk. A zip that holds a plain
+.iso instead (redump's DVD images, such as the PlayStation 2 discs) has
+that .iso copied out as it is.
 
 Redump images keep raw 2352-byte sectors (sync, header, user data, EDC/ECC).
 An .iso is just the 2048 bytes of user data of each sector of the first data
@@ -13,6 +15,7 @@ Audio tracks (none of these discs keep game data in one) are ignored.
 """
 import os
 import re
+import shutil
 import sys
 import zipfile
 
@@ -65,6 +68,11 @@ def main():
     image, out = sys.argv[1], sys.argv[2]
     if zipfile.is_zipfile(image):
         with zipfile.ZipFile(image) as z:
+            isos = [n for n in z.namelist() if n.lower().endswith(".iso")]
+            if len(isos) == 1 and len(z.namelist()) == 1:
+                with z.open(isos[0]) as src, open(out, "wb") as dst:
+                    shutil.copyfileobj(src, dst, 1 << 20)
+                return
             cues = [n for n in z.namelist() if n.lower().endswith(".cue")]
             if len(cues) != 1:
                 sys.exit(f"bin2iso: {image}: expected one .cue, found {len(cues)}")

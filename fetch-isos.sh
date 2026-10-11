@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
 # Fetch the redump images of No One Lives Forever, NOLF2 and Contract J.A.C.K.
-# from https://archive.org/details/nolf-pc-redump into isos/, check them
-# against isos/SHA256SUMS, and turn each zipped .bin/.cue into a plain
-# 2048-byte-sector .iso beside it.
+# into isos/, check them against isos/SHA256SUMS, and turn each zipped
+# .bin/.cue into a plain 2048-byte-sector .iso beside it. The PC discs come
+# from https://archive.org/details/nolf-pc-redump; NOLF's PlayStation 2 discs
+# (isos/ps2/, whose zips hold an .iso that is just copied out) from
+# https://archive.org/details/PS2-Redump-2024-Individual-Games-Part11.
 #
 #   ./fetch-isos.sh [name...]            fetch whatever is missing, verify, convert
 #   ./fetch-isos.sh --verify [name...]   only check the zips against SHA256SUMS
 #
-# With no names, every zip of the item; with release names (as
+# With no names, every zip in SHA256SUMS; with release names (as
 # ./install-games.sh takes them, e.g. nolf-eu-goty -- `tools/install.py
 # --list` lists them), only the discs those releases are installed from.
 #
@@ -17,6 +19,7 @@ set -euo pipefail
 ROOT=$(cd "$(dirname "$0")" && pwd)
 ISOS="$ROOT/isos"
 BASE="https://archive.org/download/nolf-pc-redump/NOLF-PC-REDUMP"
+PS2_BASE="https://archive.org/download/PS2-Redump-2024-Individual-Games-Part11"
 JOBS=${JOBS:-4}
 
 die() { echo "fetch-isos: $*" >&2; exit 1; }
@@ -54,20 +57,24 @@ urlencode() { python3 -I -c 'import sys, urllib.parse; print(urllib.parse.quote(
 fetch_one() {
     local z="$1" url
     [ -f "$ISOS/$z" ] && return 0
-    url="$BASE/$(urlencode "$z")"
+    case "$z" in
+        ps2/*) url="$PS2_BASE/$(urlencode "${z#*/}")" ;;
+        *)     url="$BASE/$(urlencode "$z")" ;;
+    esac
+    mkdir -p "$(dirname "$ISOS/$z")"
     echo "-> $z"
     curl -fsSL --retry 10 --retry-delay 5 -C - -o "$ISOS/$z.part" "$url"
     mv "$ISOS/$z.part" "$ISOS/$z"
     echo "<- $z"
 }
 export -f fetch_one urlencode
-export ISOS BASE
+export ISOS BASE PS2_BASE
 
 echo "== fetching ${#ZIPS[@]} zips into $ISOS ($JOBS at a time)"
 printf '%s\0' "${ZIPS[@]}" | xargs -0 -n1 -P "$JOBS" bash -c 'fetch_one "$1"' _
 verify
 
-echo "== converting .bin/.cue to .iso"
+echo "== converting to .iso"
 for z in "${ZIPS[@]}"; do
     iso="$ISOS/${z%.zip}.iso"
     [ -f "$iso" ] && continue

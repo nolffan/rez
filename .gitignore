@@ -2,6 +2,7 @@
 /isos/*.zip
 /isos/*.iso
 /isos/*.part
+/isos/ps2/
 # Installed games (./install-games.sh) and scratch
 /games/
 /.work/

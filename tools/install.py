@@ -60,6 +60,11 @@ install.reg: the registry values setup writes, for `wine regedit install.reg`.
           archive's top folder is the install directory. Resource forks and
           Finder info go in AppleDouble ._ files; symbolic links are made.
 
+  sdk     The LithTech Jupiter SDK: one InstallShield 6 file group of the
+          SDK's CD image ("Source Code"), unpacked with tools/unshield as
+          the cabinets lay it out. It goes in sdk/<name>/, not <outdir>,
+          and is checked against sdk.sha256; it has no install.reg.
+
 A Mac install gets MANIFEST.txt only. nolf-ps2-usa and nolf-ps2-eu (the
 PlayStation 2 discs) are listed only so that fetch-isos.sh can fetch them by
 name; they are not installed.
@@ -86,6 +91,9 @@ ISOS = ROOT / "isos"
 UNSHIELD = ROOT / "tools" / "unshield" / "unshield"
 ARTIFACTS = ROOT / "artifacts"
 SUMS = ROOT / "games.sha256"
+# The SDKs (SDKS, below) are installed beside the games, not among them.
+SDK_DIR = ROOT / "sdk"
+SDK_SUMS = ROOT / "sdk.sha256"
 
 NOLF1_USA_1 = "Operative, The - No One Lives Forever (USA) (Disc 1)"
 NOLF1_USA_2 = "Operative, The - No One Lives Forever (USA) (Disc 2)"
@@ -107,6 +115,7 @@ CJ_EU = ["Contract J.A.C.K. (Europe) (Disc 1)", "Contract J.A.C.K. (Europe) (Dis
 # redump names can be the same as the PC discs').
 PS2_USA = "ps2/Operative, The - No One Lives Forever (USA)"
 PS2_EU = "ps2/Operative, The - No One Lives Forever (Europe) (En,Fr,De,Es,It)"
+JUPITER_SDK = "sdk/LithEngine"
 MAC_NOLF1 = "mac/Operative, The - No One Lives Forever (USA) (Disc 1) (Game Disc)"
 MAC_NOLF2 = ["mac/No One Lives Forever 2 - A Spy in H.A.R.M.'s Way (USA) (Disc 1)",
              "mac/No One Lives Forever 2 - A Spy in H.A.R.M.'s Way (USA) (Disc 2)"]
@@ -156,7 +165,14 @@ OTHER_PLATFORMS = {
     "nolf-ps2-usa": ("ps2", [PS2_USA], {}),
     "nolf-ps2-eu":  ("ps2", [PS2_EU], {}),
 }
-ALL = {**RELEASES, **EXTRA, **OTHER_PLATFORMS}
+# The LithTech Jupiter SDK (build 51, March 2002), the engine licensees' SDK:
+# its "Source Code" file group (NOLF2's game code and libraries as they then
+# stood, with WONAPI and ServerDir, which the source release lacks). Installed
+# into sdk/<name>/, not games/, and checked against sdk.sha256.
+SDKS = {
+    "lithtech-jupiter-51": ("sdk", [JUPITER_SDK], {"group": "Source Code"}),
+}
+ALL = {**RELEASES, **EXTRA, **OTHER_PLATFORMS, **SDKS}
 
 
 class Disc:
@@ -290,14 +306,16 @@ def install_goty(inst, discs, **_):
 CAB_GROUPS = ("Program Files", "Resources", "System Files")
 
 
-def install_cab(inst, discs, key, region, nolf2=False, **_):
+def stage_cabinets(inst, discs):
+    """Copy the discs' InstallShield cabinet set (data1.hdr and every
+    dataN.cab, which may span discs) into a work directory beside the
+    install; returns (work directory, data1.hdr, the cabinets' file groups)."""
     if not UNSHIELD.exists():
         sys.exit(f"install: {UNSHIELD} is not built -- run `make -C tools/unshield`")
     work = inst.target.parent / f".{inst.name}.cab"
     shutil.rmtree(work, ignore_errors=True)
     cab = work / "cab"
     cab.mkdir(parents=True)
-    # The cabinet set spans both discs: stage data1.hdr and every dataN.cab.
     for disc in discs:
         for rel in disc.listdir("", "data*.*"):
             if rel.lower().endswith((".cab", ".hdr")):
@@ -305,23 +323,36 @@ def install_cab(inst, discs, key, region, nolf2=False, **_):
     hdr = str(cab / "data1.hdr")
     groups = subprocess.run([str(UNSHIELD), "g", hdr], check=True, capture_output=True,
                             text=True).stdout.splitlines()
+    return work, hdr, groups
+
+
+def extract_group(inst, work, hdr, group, origin):
+    """Unpack cabinet file group `group` into the install; `origin` is what
+    MANIFEST.txt says each file came from. Returns the number of files."""
+    out = work / "x"
+    shutil.rmtree(out, ignore_errors=True)
+    subprocess.run([str(UNSHIELD), "-d", str(out), "-g", group, "x", hdr], check=True,
+                   stdout=subprocess.DEVNULL)
+    n = 0
+    for top in out.iterdir():              # unshield writes <dir>/<group>/...
+        for f in sorted(top.rglob("*")):
+            if f.is_file():
+                rel = str(f.relative_to(top))
+                dest = inst.target / rel
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(f), dest)
+                inst.manifest[rel] = origin
+                n += 1
+    return n
+
+
+def install_cab(inst, discs, key, region, nolf2=False, **_):
+    work, hdr, groups = stage_cabinets(inst, discs)
     wanted = [g for g in groups if g in CAB_GROUPS or "<WINSYSDIR>" in g]
     n = 0
     for g in wanted:
-        out = work / "x"
-        shutil.rmtree(out, ignore_errors=True)
-        subprocess.run([str(UNSHIELD), "-d", str(out), "-g", g, "x", hdr], check=True,
-                       stdout=subprocess.DEVNULL)
-        for top in out.iterdir():          # unshield writes <dir>/<group>/...
-            for f in sorted(top.rglob("*")):
-                if f.is_file():
-                    rel = str(f.relative_to(top))
-                    dest = inst.target / rel
-                    dest.parent.mkdir(parents=True, exist_ok=True)
-                    shutil.move(str(f), dest)
-                    where = "<WINSYSDIR>" if "<WINSYSDIR>" in g else "<TARGETDIR>"
-                    inst.manifest[rel] = f"{discs[0].name}/data1.hdr:[{g}] ({where})"
-                    n += 1
+        where = "<WINSYSDIR>" if "<WINSYSDIR>" in g else "<TARGETDIR>"
+        n += extract_group(inst, work, hdr, g, f"{discs[0].name}/data1.hdr:[{g}] ({where})")
     shutil.rmtree(work)
     if nolf2:
         # The uncompressed groups: the (SecuROM) launcher on the disc's root,
@@ -418,14 +449,40 @@ def install_update(inst, discs, base, patch, group, values):
     return n
 
 
+def install_sdk(inst, discs, group):
+    """One file group of an SDK's InstallShield 6 cabinets, as it is laid
+    out in the cabinets (no setup script is followed: an SDK is installed
+    to be read, not run); MANIFEST.txt, and no install.reg."""
+    work, hdr, groups = stage_cabinets(inst, discs)
+    if group not in groups:
+        sys.exit(f"install: {discs[0].name}: no file group {group!r}")
+    n = extract_group(inst, work, hdr, group, f"{discs[0].name}.iso:data1.hdr:[{group}]")
+    shutil.rmtree(work)
+    inst.write_manifest()
+    return n
+
+
 INSTALLERS = {"is5": install_is5, "goty": install_goty, "cab": install_cab, "vise": install_vise,
-              "update": install_update}
+              "update": install_update, "sdk": install_sdk}
+
+
+def sums(name):
+    """The hash list a release is checked against: games.sha256, or
+    sdk.sha256 for an SDK."""
+    return SDK_SUMS if name in SDKS else SUMS
+
+
+def home(outdir, name):
+    """The directory a release is installed in: <outdir>, or sdk/ for an SDK."""
+    return SDK_DIR if name in SDKS else outdir
 
 
 def recorded(name):
-    """{path inside the release: sha256} from games.sha256."""
+    """{path inside the release: sha256} from its hash list (sums())."""
     out = {}
-    with open(SUMS) as f:
+    if not sums(name).exists():
+        return out
+    with open(sums(name)) as f:
         for line in f:
             digest, path = line.rstrip("\n").split("  ", 1)
             if path.startswith(name + "/"):
@@ -451,12 +508,12 @@ def installed(d):
 
 
 def verify(name, d):
-    """Check directory `d` (an install of `name`) against games.sha256: the
+    """Check directory `d` (an install of `name`) against its hash list: the
     same files, byte for byte. Prints what differs; True if nothing does,
     None if nothing is recorded for `name` (a release added since)."""
     want = recorded(name)
     if not want:
-        print(f"   {name}: no hashes recorded in {SUMS.name} -- NOT verified")
+        print(f"   {name}: no hashes recorded in {sums(name).name} -- NOT verified")
         return None
     have = installed(d)
     problems = [f"missing  {p}" for p in sorted(want.keys() - have)]
@@ -465,7 +522,7 @@ def verify(name, d):
     for line in problems:
         print(f"   {name}: {line}")
     if not problems:
-        print(f"   {name}: all {len(want)} files match {SUMS.name}")
+        print(f"   {name}: all {len(want)} files match {sums(name).name}")
     return not problems
 
 
@@ -487,7 +544,7 @@ def main():
         if len(args) < 2:
             sys.exit(__doc__)
         outdir = Path(args[1])
-        names = args[2:] or [n for n in ALL if (outdir / n).is_dir()]
+        names = args[2:] or [n for n in ALL if (home(outdir, n) / n).is_dir()]
         if any(n in OTHER_PLATFORMS for n in names):
             sys.exit("install: the PlayStation 2 discs are not installed")
         if not names:
@@ -496,10 +553,11 @@ def main():
         for name in names:
             if name not in ALL:
                 sys.exit(f"install: unknown release {name} (see --list)")
-            if not (outdir / name).is_dir():
-                print(f"   {name}: not installed in {outdir}")
+            d = home(outdir, name) / name
+            if not d.is_dir():
+                print(f"   {name}: not installed in {d.parent}")
                 bad += 1
-            elif verify(name, outdir / name) is not True:
+            elif verify(name, d) is not True:
                 bad += 1
         sys.exit(1 if bad else 0)
     force = "--force" in args
@@ -513,14 +571,15 @@ def main():
             sys.exit(f"install: unknown release {name} (see --list)")
         if name in OTHER_PLATFORMS:
             sys.exit(f"install: {name} is a PlayStation 2 disc; there is nothing to install")
-    outdir.mkdir(parents=True, exist_ok=True)
     for name in names:
-        final = outdir / name
+        where = home(outdir, name)
+        where.mkdir(parents=True, exist_ok=True)
+        final = where / name
         if final.exists() and not force:
             print(f"== {name}: already installed ({final}); --force to redo")
             continue
         kind, disc_names, opts = ALL[name]
-        tmp = outdir / f".{name}.tmp"
+        tmp = where / f".{name}.tmp"
         shutil.rmtree(tmp, ignore_errors=True)
         tmp.mkdir()
         print(f"== {name} ({kind}: {' + '.join(disc_names)})", flush=True)
@@ -528,7 +587,7 @@ def main():
         disc_class = MacDisc if kind == "vise" else Disc
         n = INSTALLERS[kind](inst, [disc_class(d) for d in disc_names], **opts)
         if verify(name, tmp) is False:
-            sys.exit(f"install: {name} does not match {SUMS.name}; left in {tmp}")
+            sys.exit(f"install: {name} does not match {sums(name).name}; left in {tmp}")
         # install.reg names the final path, not the .tmp one.
         if final.exists():
             shutil.rmtree(final)

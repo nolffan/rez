@@ -4,8 +4,10 @@
 /isos/*.part
 /isos/ps2/
 /isos/mac/
-# Installed games (./install-games.sh) and scratch
+/isos/sdk/
+# Installed games and SDKs (./install-games.sh) and scratch
 /games/
+/sdk/
 /.work/
 # Built from tools/unshield's sources
 /tools/unshield/unshield

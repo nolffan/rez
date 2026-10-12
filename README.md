@@ -6,7 +6,9 @@ Lives Forever*, *No One Lives Forever 2* and *Contract J.A.C.K.* from
 and of the Mac releases of NOLF and NOLF2, and installs each release from
 them the way its own setup program would: one directory per release,
 holding everything the game runs with. It also fetches the discs of NOLF's
-PlayStation 2 port, which are kept as images only.
+PlayStation 2 port, which are kept as images only. Beside the games, it
+fetches the LithTech Jupiter SDK, NOLF2's engine generation, and installs
+its source into `sdk/` (below).
 
 ```sh
 ./fetch-isos.sh        # ~18.0 GB of zips -> isos/, checked, converted to .iso
@@ -26,8 +28,9 @@ Requirements: `bash`, `curl`, `sha256sum`, `python3`, and a C compiler,
 
 ## isos/
 
-`isos/SHA256SUMS` lists the 25 zips exactly as archive.org serves them.
-`fetch-isos.sh` checks every zip against it before using it. Each PC zip
+`isos/SHA256SUMS` lists the 25 zips, and the SDK's image (`isos/sdk/`,
+below), exactly as archive.org serves them. `fetch-isos.sh` checks every
+one against it before using it. Each PC zip
 holds a redump `.bin`/`.cue` with raw 2352-byte sectors. `tools/bin2iso.py` reads the
 data track straight out of the zip and writes a plain 2048-byte-sector `.iso`
 beside it, under the same name.
@@ -230,6 +233,35 @@ wine lithtech.exe -rez nolf.rez -rez nolf2.rez -rez nolfdll.rez -rez nolfl.rez -
     ++windowed 1 +runworld 'Worlds\T01S01'
 ```
 
+## sdk/
+
+The LithTech Jupiter SDK (build 51, March 2002) is the engine's licensee
+SDK: engine headers and libraries, tools, documentation, and the game code
+and libraries of NOLF2 as it then stood. Its CD image, `LithEngine.iso` (an
+InstallShield 6 setup), comes from
+[archive.org/details/lithengine](https://archive.org/details/lithengine)
+into `isos/sdk/`, checked against `isos/SHA256SUMS` like the discs; it is
+already a plain `.iso`, so nothing is converted. Its SHA-1 matches the one
+archive.org lists, `74d60e5e1a64718f11bd3787095bce19a15caabd`.
+
+```sh
+./fetch-isos.sh lithtech-jupiter-51 && ./install-games.sh lithtech-jupiter-51
+```
+
+`install.py`'s `sdk` installer unpacks the setup's "Source Code" file group
+with `tools/unshield` into `sdk/lithtech-jupiter-51/` (`Engine/`, `Game/`,
+`Libs/`: 3,303 files, 59 MB), as the cabinets lay it out, plus
+`MANIFEST.txt`. The setup's other groups (the engine binaries, tools,
+documentation) are not installed. It is checked against `sdk.sha256`, as a
+game is against `games.sha256`, and `--verify` re-checks it. An SDK is not
+a release: `./install-games.sh` with no names leaves it out, and it never
+goes in `games/`.
+
+The SDK was licensed to the engine's licensees, not released. archive.org
+labels the item public domain, but nothing in the SDK says so: its
+`Engine/sdk/Legal.txt` is the copyright notice of LithTech, Inc. Treat it
+as you would the disc images.
+
 ## Demos, patches and map packs
 
 `demos/`, `patches/` and `mappacks/` hold the released demos, updates and
@@ -258,7 +290,7 @@ packed them or when. Packing an item again gives the same bytes.
 | `isoextract.py` | ISO 9660 / Joliet reader, from `~/src/nolfsrc/tools` |
 | `hfsextract.py` | HFS / HFS+ reader for the Mac images (`--list`, or extract with AppleDouble `._` files) |
 | `viseextract.py` | Installer VISE 8 archive reader (`--list`, or extract, CRC-checked); its docstring describes the format |
-| `install.py` | the installers above; `--list` shows the releases and their discs |
+| `install.py` | the installers above (and the SDK's); `--list` shows the releases and their discs |
 | `sfxcab.py` | the Microsoft cabinet inside an InstallShield self-extractor (MSZIP or stored) → its files (`--list`, or extract) |
 | `pack-artifacts.sh` | an item of `demos/`, `patches/` or `mappacks/` → chunked `.tar.xz` (above) |
 | `unshield/` | [unshield](https://github.com/twogood/unshield) 1.5.1 (MIT), vendored with a plain Makefile in place of CMake |

@@ -75,6 +75,7 @@ and no European Mac discs. They are installed as `nolf-mac-usa` and
 | `nolf2-usa` | NOLF2 (USA) 1 + 2 | InstallShield 6 cabinets |
 | `nolf2-eu` | NOLF2 (Europe) 1 + 2 | InstallShield 6 cabinets |
 | `nolf2-de` | NOLF2 (Germany) 1 + 2 | InstallShield 6 cabinets |
+| `nolf2-eu-1.3` | NOLF2 (Europe) 1 + 2, with the English 1.3 update | `nolf2-eu`, then `patches/nolf2-update_1x3.exe` |
 | `contract-jack-us` | Contract J.A.C.K. (USA) 1 + 2 | InstallShield 6 cabinets |
 | `contract-jack-eu` | Contract J.A.C.K. (Europe) 1 + 2 | InstallShield 6 cabinets |
 | `nolf-mac-usa` | NOLF (USA) Mac game disc | Installer VISE |
@@ -138,6 +139,23 @@ each setup's own script and media.
   J.A.C.K. These are put in the game directory instead, where Windows and
   Wine look first; the manifest marks them. The registry values are
   `InstallDir` and `NetRegionCode`, taken from the setup's string table.
+
+- **An update over a release** (`nolf2-eu-1.3`): the base release's
+  install, then the update's files. NOLF2's 1.3 update
+  (`patches/nolf2-update_1x3.exe`) is an InstallShield 6 setup inside a
+  self-extractor, whose payload is one Microsoft cabinet holding the setup's
+  `Disk1` folder; `tools/sfxcab.py` unpacks it (MSZIP), and `tools/unshield`
+  takes the update's own file group, `PatchEN`, out of its `data1.hdr`. Its
+  14 files go over the install: a new engine (`Lithtech.exe`, `server.dll`,
+  `ServerDir.dll`, `SndDrv.dll`, `ltmsg.dll`), launcher and dedicated
+  server, `Update_v1x3.rez` (the 1.3 game DLLs and data), `autoexec.cfg`,
+  `Profiles\Default.prf`, readmes and Sierra updater configs. A file it
+  replaces keeps the name it was installed under, as on Windows (its
+  `SndDrv.dll` overwrites `snddrv.dll`). Setup adds the update to the
+  registry: `UpdateNum` (a DWORD, 2) and `UpdateCommandLine1`
+  (`-rez Update_v1x3.rez`), which the launcher appends to the command line.
+  The update is read from its assembled archive in `artifacts/patches/`
+  (`./assemble-artifacts.sh` runs if it is not there).
 
 - **Installer VISE** (the Mac releases, MacPlay) is a single application
   whose data fork is a compressed archive; NOLF2's continues in `NOLF2
@@ -241,5 +259,6 @@ packed them or when. Packing an item again gives the same bytes.
 | `hfsextract.py` | HFS / HFS+ reader for the Mac images (`--list`, or extract with AppleDouble `._` files) |
 | `viseextract.py` | Installer VISE 8 archive reader (`--list`, or extract, CRC-checked); its docstring describes the format |
 | `install.py` | the installers above; `--list` shows the releases and their discs |
+| `sfxcab.py` | the Microsoft cabinet inside an InstallShield self-extractor (MSZIP or stored) → its files (`--list`, or extract) |
 | `pack-artifacts.sh` | an item of `demos/`, `patches/` or `mappacks/` → chunked `.tar.xz` (above) |
 | `unshield/` | [unshield](https://github.com/twogood/unshield) 1.5.1 (MIT), vendored with a plain Makefile in place of CMake |

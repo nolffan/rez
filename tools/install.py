@@ -43,6 +43,15 @@ with nothing recorded yet is installed with a warning.
 Every directory gets MANIFEST.txt (where each file came from) and
 install.reg: the registry values setup writes, for `wine regedit install.reg`.
 
+  update  A release with an update applied: the base release's install,
+          then the update's files over it, as its setup copies them. The
+          NOLF2 and Contract J.A.C.K. updates are InstallShield 6 setups in
+          a self-extractor (tools/sfxcab.py unpacks its cabinet); their
+          files are one cabinet file group (PatchEN, ...), and setup adds
+          the update's command line to the registry (install.reg). The
+          update is read from the archive assemble-artifacts.sh rebuilds
+          from patches/ (run here if it is not there yet).
+
   vise    The Mac releases (MacPlay): an Installer VISE archive in the disc's
           installer application (NOLF2's continued on disc 2 in "NOLF2
           Install Data"), whose single "Easy Install" package installs the
@@ -63,16 +72,19 @@ import os
 import shutil
 import subprocess
 import sys
+import tarfile
 from pathlib import Path, PureWindowsPath
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from hfsextract import Volume  # noqa: E402
 from isoextract import Iso  # noqa: E402
+from sfxcab import read_cabinet  # noqa: E402
 from viseextract import Archive  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 ISOS = ROOT / "isos"
 UNSHIELD = ROOT / "tools" / "unshield" / "unshield"
+ARTIFACTS = ROOT / "artifacts"
 SUMS = ROOT / "games.sha256"
 
 NOLF1_USA_1 = "Operative, The - No One Lives Forever (USA) (Disc 1)"
@@ -121,6 +133,13 @@ RELEASES = {
     "nolf2-usa":        ("cab", NOLF2_USA, {"key": NOLF2_KEY, "region": "EN", "nolf2": True}),
     "nolf2-eu":         ("cab", NOLF2_EU, {"key": NOLF2_KEY, "region": "EN", "nolf2": True}),
     "nolf2-de":         ("cab", NOLF2_DE, {"key": NOLF2_KEY, "region": "DE", "nolf2": True}),
+    # NOLF2 (Europe, English) at its last update, 1.3 (the English one):
+    # what Monolith's source release is.
+    "nolf2-eu-1.3":     ("update", NOLF2_EU, {"base": "nolf2-eu",
+                                               "patch": "patches/nolf2-update_1x3.exe",
+                                               "group": "PatchEN",
+                                               "values": {"UpdateNum": 2,
+                                                          "UpdateCommandLine1": "-rez Update_v1x3.rez"}}),
     "contract-jack-us": ("cab", CJ_USA, {"key": CJ_KEY, "region": "EN"}),
     "contract-jack-eu": ("cab", CJ_EU, {"key": CJ_KEY, "region": "EN"}),
     "nolf-mac-usa":     ("vise", [MAC_NOLF1], {"segments": ["NOLF Installer"]}),
@@ -214,7 +233,8 @@ class Install:
     def write_extras(self, values, key):
         """MANIFEST.txt, and install.reg with `values` under HKLM\\`key` --
         both the native and the 32-bit (Wow6432Node) view, so it works in a
-        32- or 64-bit Wine prefix alike."""
+        32- or 64-bit Wine prefix alike. A value that is an int is a DWORD."""
+        self.values, self.key = dict(values), key
         self.write_manifest()
         # Wine maps / to Z:, so this is the directory's own path.
         winpath = "Z:" + str(PureWindowsPath(self.target.parent.resolve() / self.name))
@@ -222,6 +242,9 @@ class Install:
         for view in (key, key.replace("\\", "\\Wow6432Node\\", 1)):
             lines.append(f"[HKEY_LOCAL_MACHINE\\{view}]")
             for k, v in values.items():
+                if isinstance(v, int):
+                    lines.append('"%s"=dword:%08x' % (k, v))
+                    continue
                 v = winpath if v is None else v
                 lines.append('"%s"="%s"' % (k, v.replace("\\", "\\\\").replace('"', '\\"')))
             lines.append("")
@@ -347,7 +370,56 @@ def install_vise(inst, discs, segments):
     return n
 
 
-INSTALLERS = {"is5": install_is5, "goty": install_goty, "cab": install_cab, "vise": install_vise}
+def install_update(inst, discs, base, patch, group, values):
+    """The base release, then the update's file group `group` over it."""
+    kind, _discs, opts = RELEASES[base]
+    n = INSTALLERS[kind](inst, discs, **opts)
+    archive = ARTIFACTS / f"{patch}.tar.xz"
+    if not archive.exists():
+        subprocess.run([str(ROOT / "assemble-artifacts.sh"), patch], check=True)
+    work = inst.target.parent / f".{inst.name}.update"
+    shutil.rmtree(work, ignore_errors=True)
+    setup = work / "setup"
+    with tarfile.open(archive, "r:xz") as tar:
+        members = [m for m in tar.getmembers() if m.isfile()]
+        if len(members) != 1:
+            sys.exit(f"install: {archive.name}: expected one file, found {len(members)}")
+        exe = tar.extractfile(members[0]).read()
+    for name, blob in read_cabinet(exe):
+        dest = setup / name
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        dest.write_bytes(blob)
+    hdr = next(setup.rglob("data1.hdr"))
+    out = work / "x"
+    subprocess.run([str(UNSHIELD), "-d", str(out), "-g", group, "x", str(hdr)], check=True,
+                   stdout=subprocess.DEVNULL)
+    # Names match as on Windows: a file the update replaces keeps the name
+    # it was installed under (the update's SndDrv.dll is snddrv.dll).
+    present = {str(p.relative_to(inst.target)).lower(): str(p.relative_to(inst.target))
+               for p in inst.target.rglob("*") if p.is_file()}
+    m = 0
+    for top in out.iterdir():               # unshield writes <dir>/<group>/...
+        for f in sorted(top.rglob("*")):
+            if f.is_file():
+                rel = str(f.relative_to(top))
+                rel = present.get(rel.lower(), rel)
+                dest = inst.target / rel
+                dest.parent.mkdir(parents=True, exist_ok=True)
+                if dest.exists():
+                    dest.unlink()
+                else:
+                    n += 1
+                shutil.move(str(f), dest)
+                inst.manifest[rel] = f"{patch}:[{group}]"
+                m += 1
+    shutil.rmtree(work)
+    inst.write_extras({**inst.values, **values}, inst.key)
+    print(f"   {patch}: {m} files over {base}")
+    return n
+
+
+INSTALLERS = {"is5": install_is5, "goty": install_goty, "cab": install_cab, "vise": install_vise,
+              "update": install_update}
 
 
 def recorded(name):

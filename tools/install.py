@@ -151,6 +151,12 @@ RELEASES = {
                                                           "UpdateCommandLine1": "-rez Update_v1x3.rez"}}),
     "contract-jack-us": ("cab", CJ_USA, {"key": CJ_KEY, "region": "EN"}),
     "contract-jack-eu": ("cab", CJ_EU, {"key": CJ_KEY, "region": "EN"}),
+    # Contract J.A.C.K. (Europe) at its one update, 1.1 (the English one).
+    "contract-jack-eu-1.1": ("update", CJ_EU, {"base": "contract-jack-eu",
+                                               "patch": "patches/contractjack_update_en_10_11.exe",
+                                               "group": "Program Files",
+                                               "values": {"UpdateNum": 1,
+                                                          "UpdateCommandLine0": "-rez Update_v1x1.rez"}}),
     "nolf-mac-usa":     ("vise", [MAC_NOLF1], {"segments": ["NOLF Installer"]}),
     "nolf2-mac-usa":    ("vise", MAC_NOLF2, {"segments": ["Install No One Lives Forever 2",
                                                          "NOLF2 Install Data"]}),

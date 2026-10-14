@@ -81,6 +81,7 @@ and no European Mac discs. They are installed as `nolf-mac-usa` and
 | `nolf2-eu-1.3` | NOLF2 (Europe) 1 + 2, with the English 1.3 update | `nolf2-eu`, then `patches/nolf2-update_1x3.exe` |
 | `contract-jack-us` | Contract J.A.C.K. (USA) 1 + 2 | InstallShield 6 cabinets |
 | `contract-jack-eu` | Contract J.A.C.K. (Europe) 1 + 2 | InstallShield 6 cabinets |
+| `contract-jack-eu-1.1` | Contract J.A.C.K. (Europe) 1 + 2, with the English 1.1 update | `contract-jack-eu`, then `patches/contractjack_update_en_10_11.exe` |
 | `nolf-mac-usa` | NOLF (USA) Mac game disc | Installer VISE |
 | `nolf2-mac-usa` | NOLF2 (USA) Mac 1 + 2 | Installer VISE, two segments |
 
@@ -143,7 +144,7 @@ each setup's own script and media.
   Wine look first; the manifest marks them. The registry values are
   `InstallDir` and `NetRegionCode`, taken from the setup's string table.
 
-- **An update over a release** (`nolf2-eu-1.3`): the base release's
+- **An update over a release** (`nolf2-eu-1.3`, `contract-jack-eu-1.1`): the base release's
   install, then the update's files. NOLF2's 1.3 update
   (`patches/nolf2-update_1x3.exe`) is an InstallShield 6 setup inside a
   self-extractor, whose payload is one Microsoft cabinet holding the setup's
@@ -159,6 +160,13 @@ each setup's own script and media.
   (`-rez Update_v1x3.rez`), which the launcher appends to the command line.
   The update is read from its assembled archive in `artifacts/patches/`
   (`./assemble-artifacts.sh` runs if it is not there).
+
+  Contract J.A.C.K.'s 1.1 update (`contract-jack-eu-1.1`,
+  `patches/contractjack_update_en_10_11.exe`) is packed the same way. Its
+  file group is `Program Files`, eight files: a new engine (`Lithtech.exe`,
+  `server.dll`), launcher, dedicated server, `GameSpy.dll`,
+  `Update_v1x1.rez` (the 1.1 game DLLs and data) and readmes. Its setup
+  writes `UpdateNum` (1) and `UpdateCommandLine0` (`-rez Update_v1x1.rez`).
 
 - **Installer VISE** (the Mac releases, MacPlay) is a single application
   whose data fork is a compressed archive; NOLF2's continues in `NOLF2

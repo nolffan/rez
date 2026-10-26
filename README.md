@@ -16,7 +16,7 @@ games, and the engine's later SDK with the tools' source (below).
 
 ```sh
 ./fetch-isos.sh        # ~23.7 GB of zips -> isos/, checked, converted to .iso
-./install-games.sh     # -> installed/games/<release>/ (~28 GB for all twenty-one), each checked
+./install-games.sh     # -> installed/games/<release>/ (~30 GB for all twenty-two), each checked
 ./install-devtools.sh  # -> installed/devtools/<release>/ (~4.1 GB for all eleven), each checked
 ```
 
@@ -121,6 +121,7 @@ the PS2 discs. `./fetch-isos.sh avp2-demo-usa` fetches it.
 | `avp2-ph-eu` | AvP2: Primal Hunt (Europe) | InstallShield 6 cabinets, setup type "Typical" |
 | `avp2-ph-it` | AvP2: Primal Hunt (Italy) | InstallShield 6 cabinets, setup type "Typical", Italian |
 | `tron2-usa` | Tron 2.0 (USA) 1 + 2 | InstallShield 6 cabinets, "Recommended" |
+| `tron2-usa-1.030` | Tron 2.0 (USA) 1 + 2, with Update 2 (v1.030) | `tron2-usa`, then `patches/tron-update_v1x2_complete.exe` |
 
 `nolf-eu-fr`, `nolf-eu-de`, `nolf-eu-es` and `nolf-eu-sv` are the other
 languages of the European NOLF discs. They are installed only when named.
@@ -181,7 +182,8 @@ each setup's own script and media.
   Wine look first; the manifest marks them. The registry values are
   `InstallDir` and `NetRegionCode`, taken from the setup's string table.
 
-- **An update over a release** (`nolf2-eu-1.3`, `contract-jack-eu-1.1`): the base release's
+- **An update over a release** (`nolf2-eu-1.3`, `contract-jack-eu-1.1`,
+  `tron2-usa-1.030`): the base release's
   install, then the update's files. NOLF2's 1.3 update
   (`patches/nolf2-update_1x3.exe`) is an InstallShield 6 setup inside a
   self-extractor, whose payload is one Microsoft cabinet holding the setup's
@@ -204,6 +206,20 @@ each setup's own script and media.
   `server.dll`), launcher, dedicated server, `GameSpy.dll`,
   `Update_v1x1.rez` (the 1.1 game DLLs and data) and readmes. Its setup
   writes `UpdateNum` (1) and `UpdateCommandLine0` (`-rez Update_v1x1.rez`).
+
+  Tron 2.0's Update 2 (`tron2-usa-1.030`,
+  `patches/tron-update_v1x2_complete.exe`) is the "complete" one, which
+  takes a 1.010 (retail) install straight to v1.030, the version the menu
+  then shows. It is packed the same way. Its setup picks two file groups:
+  `Common Complete` (`Gamep4.rez`, the dedicated server `TRONSrv.exe`,
+  `server.dll`, `SndDrv.dll`, `ltmsg.dll`) and the language's own, here
+  `Patch Files EN Complete` (`TRON.exe`, `Lithtech.exe`, `Gamep3.rez` and a
+  readme, still Update 1's text). Nine files go over the install. Setup
+  writes `UpdateNum` (2), `UpdateCommandLine0` (`-rez gamep3.rez`) and
+  `UpdateCommandLine1` (`-rez gamep4.rez`). The update came from
+  [The Patches Scrolls](https://www.patches-scrolls.de/patch/4528/7) as
+  `tron20v1030.zip` (SHA-256 `7fc527ea…7fc8`), which holds just this
+  installer (Oct 2003) and a link to the site, left out.
 
 - **Installer VISE** (the Mac releases, MacPlay) is a single application
   whose data fork is a compressed archive; NOLF2's continues in `NOLF2
@@ -319,8 +335,8 @@ The retail executables are as shipped:
 - The GOTY binaries and the 2000 release's `lithtech.exe` are unprotected.
 - AvP2's launcher `AVP2.exe` and Primal Hunt's `PrimalHunt.exe` are SecuROM
   (`.cms_t`/`.cms_d` sections). Their engines (`lithtech.exe`) are not.
-- Tron 2.0's `Lithtech.exe` is SecuROM (setup's own messages say so). Its
-  launcher `Tron.exe` is not.
+- Tron 2.0's `Lithtech.exe` is SecuROM (setup's own messages say so), and
+  so is Update 2's. Its launcher `Tron.exe` is not.
 
 Both NOLF1 trees were checked under Wine 9 (in `~/src/nolfsrc`'s build
 container). `lithtech.exe` loads `Worlds\T01S01` and keeps running. The

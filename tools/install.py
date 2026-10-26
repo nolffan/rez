@@ -233,6 +233,14 @@ RELEASES = {
     "avp2-ph-it":       ("setup", [AVP2PH_IT], {"type": "Typical", "lang": "0010", "key": AVP2PH_KEY}),
     "tron2-usa":        ("setup", TRON_USA, {"components": TRON_COMPONENTS, "lang": "0009", "key": TRON_KEY,
                                              "values": {"NetRegionCode": "EN"}}),
+    # Tron 2.0 at its Update 2, v1.030 (the "complete" one, for a 1.010
+    # install): its common files and the English ones.
+    "tron2-usa-1.030":  ("update", TRON_USA, {"base": "tron2-usa",
+                                              "patch": "patches/tron-update_v1x2_complete.exe",
+                                              "group": ["Common Complete", "Patch Files EN Complete"],
+                                              "values": {"UpdateNum": 2,
+                                                         "UpdateCommandLine0": "-rez gamep3.rez",
+                                                         "UpdateCommandLine1": "-rez gamep4.rez"}}),
 }
 EXTRA = {
     f"nolf-eu-{code}": ("is5", [NOLF1_EU_1, NOLF1_EU_2], {"lang": lang})
@@ -600,7 +608,8 @@ def install_vise(inst, discs, segments):
 
 
 def install_update(inst, discs, base, patch, group, values):
-    """The base release, then the update's file group `group` over it."""
+    """The base release, then the update's file group `group` (or groups,
+    in order) over it."""
     kind, _discs, opts = RELEASES[base]
     n = INSTALLERS[kind](inst, discs, **opts)
     archive = ARTIFACTS / f"{patch}.tar.xz"
@@ -619,28 +628,30 @@ def install_update(inst, discs, base, patch, group, values):
         dest.parent.mkdir(parents=True, exist_ok=True)
         dest.write_bytes(blob)
     hdr = next(setup.rglob("data1.hdr"))
-    out = work / "x"
-    subprocess.run([str(UNSHIELD), "-d", str(out), "-g", group, "x", str(hdr)], check=True,
-                   stdout=subprocess.DEVNULL)
-    # Names match as on Windows: a file the update replaces keeps the name
-    # it was installed under (the update's SndDrv.dll is snddrv.dll).
-    present = {str(p.relative_to(inst.target)).lower(): str(p.relative_to(inst.target))
-               for p in inst.target.rglob("*") if p.is_file()}
     m = 0
-    for top in out.iterdir():               # unshield writes <dir>/<group>/...
-        for f in sorted(top.rglob("*")):
-            if f.is_file():
-                rel = str(f.relative_to(top))
-                rel = present.get(rel.lower(), rel)
-                dest = inst.target / rel
-                dest.parent.mkdir(parents=True, exist_ok=True)
-                if dest.exists():
-                    dest.unlink()
-                else:
-                    n += 1
-                shutil.move(str(f), dest)
-                inst.manifest[rel] = f"{patch}:[{group}]"
-                m += 1
+    for g in [group] if isinstance(group, str) else group:
+        out = work / "x"
+        shutil.rmtree(out, ignore_errors=True)
+        subprocess.run([str(UNSHIELD), "-d", str(out), "-g", g, "x", str(hdr)], check=True,
+                       stdout=subprocess.DEVNULL)
+        # Names match as on Windows: a file the update replaces keeps the
+        # name it was installed under (the update's SndDrv.dll is snddrv.dll).
+        present = {str(p.relative_to(inst.target)).lower(): str(p.relative_to(inst.target))
+                   for p in inst.target.rglob("*") if p.is_file()}
+        for top in out.iterdir():           # unshield writes <dir>/<group>/...
+            for f in sorted(top.rglob("*")):
+                if f.is_file():
+                    rel = str(f.relative_to(top))
+                    rel = present.get(rel.lower(), rel)
+                    dest = inst.target / rel
+                    dest.parent.mkdir(parents=True, exist_ok=True)
+                    if dest.exists():
+                        dest.unlink()
+                    else:
+                        n += 1
+                    shutil.move(str(f), dest)
+                    inst.manifest[rel] = f"{patch}:[{g}]"
+                    m += 1
     shutil.rmtree(work)
     inst.write_extras({**inst.values, **values}, inst.key)
     print(f"   {patch}: {m} files over {base}")

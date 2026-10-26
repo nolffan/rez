@@ -51,8 +51,11 @@ if [ $# -gt 0 ]; then
     discs=$(python3 -I "$ROOT/tools/install.py" --discs "$@") || exit 1
     ZIPS=()
     while IFS= read -r d; do
+        [ -n "$d" ] || continue
         if printf '%s\n' "${ALL_ZIPS[@]}" | grep -qxF "$d.iso"; then ZIPS+=("$d.iso"); else ZIPS+=("$d.zip"); fi
     done <<< "$discs"
+    # Dev tools kept in devtools/ use no disc.
+    [ ${#ZIPS[@]} -gt 0 ] || { echo "== no disc images needed for: $*"; exit 0; }
 fi
 
 # The SHA256SUMS lines of the images in ZIPS (each line is "<hash>  <name>").

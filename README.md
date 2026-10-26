@@ -10,12 +10,22 @@ installed the same way: *Aliens versus Predator 2* and its expansion
 *Primal Hunt* (below), and *Tron 2.0*. It also fetches the discs of NOLF's
 PlayStation 2 port and AvP2's demo disc, which are kept as images only.
 Beside the games, it fetches the LithTech Jupiter SDK, NOLF2's engine
-generation, and installs its source into `sdk/` (below).
+generation, and installs its source (below). And it keeps and installs the
+LithTech dev tools: every public release of the editing tools for these
+games, and the engine's later SDK with the tools' source (below).
 
 ```sh
 ./fetch-isos.sh        # ~23.7 GB of zips -> isos/, checked, converted to .iso
-./install-games.sh     # -> games/<release>/ (~28 GB for all twenty-one), each checked
+./install-games.sh     # -> installed/games/<release>/ (~28 GB for all twenty-one), each checked
+./install-devtools.sh  # -> installed/devtools/<release>/ (~4.1 GB for all eleven), each checked
 ```
+
+Everything installed goes under `installed/`: `installed/games/`,
+`installed/sdk/` and `installed/devtools/`. `games` and `sdk`, where the
+games and the SDK used to be installed, are links to `installed/games` and
+`installed/sdk`, so those paths (and old `install.reg` files) still work. A
+`games/` or `sdk/` directory from before is moved into `installed/` the
+next time either script runs.
 
 Both scripts take release names (the table below) to work on just those.
 `./fetch-isos.sh nolf-eu-goty && ./install-games.sh nolf-eu-goty` downloads
@@ -23,10 +33,11 @@ only that release's two discs and installs it. Both are re-runnable: a
 finished step is not repeated, and an interrupted download resumes.
 `--force` reinstalls a release that is already installed, and
 `./install-games.sh --verify [name...]` re-checks installed ones (by default,
-every one in `games/`). `tools/install.py --list` shows each release's discs.
+every one in `installed/games/`). `./install-devtools.sh` works the same
+way. `tools/install.py --list` shows each release's discs.
 
 Requirements: `bash`, `curl`, `sha256sum`, `python3`, and a C compiler,
-`make` and zlib headers for `tools/unshield`.
+`make` and zlib headers for `tools/unshield` (and `tools/blast`).
 
 ## isos/
 
@@ -85,7 +96,7 @@ The demo disc (`avp2-demo-usa`) holds two demo installers
 (`avp2spdemo.exe`, `avp2mpdemo2.exe`) and is kept as an image only, like
 the PS2 discs. `./fetch-isos.sh avp2-demo-usa` fetches it.
 
-## games/
+## installed/games/
 
 | Release | Discs | Installer |
 |---|---|---|
@@ -125,7 +136,7 @@ except `install.reg`, which contains the directory's path. A symbolic link
 (the Mac releases have some) is recorded by the SHA-256 of its target. Each install is
 checked against it before it is moved into place. Every recorded file must be
 present with its hash, and there must be no other files. A release that does
-not match is left in `games/.<name>.tmp`, and the script fails. Playing the
+not match is left in `installed/games/.<name>.tmp`, and the script fails. Playing the
 game changes its directory (the engine rewrites `autoexec.cfg` and writes
 saves), so `--verify` will then report those files.
 
@@ -321,7 +332,7 @@ wine lithtech.exe -rez nolf.rez -rez nolf2.rez -rez nolfdll.rez -rez nolfl.rez -
     ++windowed 1 +runworld 'Worlds\T01S01'
 ```
 
-## sdk/
+## installed/sdk/
 
 The LithTech Jupiter SDK (build 51, March 2002) is the engine's licensee
 SDK: engine headers and libraries, tools, documentation, and the game code
@@ -337,23 +348,84 @@ archive.org lists, `74d60e5e1a64718f11bd3787095bce19a15caabd`.
 ```
 
 `install.py`'s `sdk` installer unpacks the setup's "Source Code" file group
-with `tools/unshield` into `sdk/lithtech-jupiter-51/` (`Engine/`, `Game/`,
+with `tools/unshield` into `installed/sdk/lithtech-jupiter-51/` (`Engine/`, `Game/`,
 `Libs/`: 3,303 files, 59 MB), as the cabinets lay it out, plus
 `MANIFEST.txt`. The setup's other groups (the engine binaries, tools,
 documentation) are not installed. It is checked against `sdk.sha256`, as a
 game is against `games.sha256`, and `--verify` re-checks it. An SDK is not
 a release: `./install-games.sh` with no names leaves it out, and it never
-goes in `games/`.
+goes in `installed/games/`. The whole SDK, tools and all, is also installed
+as a dev tool release, `jupiter-b51` (below).
 
 The SDK was licensed to the engine's licensees, not released. archive.org
 labels the item public domain, but nothing in the SDK says so: its
 `Engine/sdk/Legal.txt` is the copyright notice of LithTech, Inc. Treat it
 as you would the disc images.
 
-## Demos, patches and map packs
+## installed/devtools/
 
-`demos/`, `patches/` and `mappacks/` hold the released demos, updates and
-map packs. Each one (an installer `.exe`, or an unpacked map pack's folder)
+The public LithTech editing tool releases for these games, and the later
+Jupiter SDKs, installed one directory per release, as their own installers
+would. Those released on a game disc are read off the disc images (run
+`./fetch-isos.sh <release>` first); the others are kept in `devtools/`
+(below), from where they were collected.
+
+```sh
+./install-devtools.sh                      # every release
+./fetch-isos.sh avp2-tools-update2 && ./install-devtools.sh avp2-tools-update2
+./install-devtools.sh --verify             # re-check them
+```
+
+| Release | What | Source | Installer |
+|---|---|---|---|
+| `nolf-tools-001` | NOLF Tools 001 (Jan 2001): DEdit, ModelEdit, Processor, LithRez, the 3ds Max exporters | NOLF GOTY disc 2, `Game/NOLFTools001.exe` | a zip around an InstallShield 5 setup |
+| `avp2-tools` | AvP2 Editing Tools v1.0 (Dec 2001) | Primal Hunt (Europe) disc, `Tools/avp2tools.exe` | InstallShield 6 self-extractor, "Typical" |
+| `avp2-tools-update1` | v1.0 with Update 1 (Jan 2002) over it | `Tools/avp2tools_update.exe` | the same, over `avp2-tools` |
+| `avp2-tools-update2` | v1.0 with Updates 1 and 2 (May 2002) | `Tools/avp2tools_update2.exe` | the same, over `avp2-tools-update1` |
+| `jupiter-b51` | LithTech Jupiter SDK, build 51 (Mar 2002), all of it | `isos/sdk/LithEngine.iso` | InstallShield 6, "Typical" |
+| `nolf2-toolkit` | NOLF2 Toolkit (`si_nolf2_tools_en_10.exe`, 2003) | `devtools/` | InstallShield 6 self-extractor, "Patch" |
+| `tron2-tools` | Tron 2.0 tools, Monolith's `tron_tools.zip` (2003) | `devtools/tron2-tools-1.2a/` | the zip itself |
+| `tron2-tools-1.2a` | Tron 2.0 Editing Tools v1.2a, a fan repackaging of the above with extras | `devtools/tron2-tools-1.2a/` | Setup Factory 6 |
+| `cjack-tools` | Contract J.A.C.K. Public Tools (Oct 2003) | CJ (Europe) disc 1, `PublicToolsSetup.exe` | InstallShield 6 self-extractor, "Typical" |
+| `jupiter-b69` | Jupiter System Enterprise Edition, build 69 (2006): the engine and the tools' full source | `devtools/` | InstallShield set in a zip, "Typical" |
+| `lithtech-ftp-dump` | a dump of LithTech's FTP site: the 1998 LithTech 1.x SDK (`ltsdk242`), a 1998 dev setup (`os_ltdev`), Shogo-era Max tools (`New3DMax`), two promo videos | `devtools/` | 7z, with its zips unpacked |
+
+Each gets a `MANIFEST.txt` saying which image or archive, and which file in
+it, every file came from, and is checked against `devtools.sha256` like a
+game. There is no `install.reg`. Notes:
+
+- NOLF Tools 001's setup copies its `Tools` folder into NOLF's directory
+  (`<NOLF>\TOOLS`). Here the folder's contents are the release.
+- The AvP2 tools on the three Primal Hunt discs are byte-identical. Each
+  update is a setup of its own, run over the install before it, so the
+  later releases include the earlier files they don't replace.
+- The InstallShield sets (AvP2, CJ, the NOLF2 Toolkit, both Jupiter SDKs)
+  go through the same installer as AvP2 and Tron 2.0 (`tools/ishdr.py`,
+  above). The self-extractors are unpacked with `tools/sfxcab.py`.
+- Tron's v1.2a installer (Setup Factory 6) records each file's
+  destination under `%AppDir%`, the Tron directory, so the release is laid
+  out as it would be there: `Tools/`, `Game/PREFABS/`, `Game/TEX/` and so
+  on. Its one `%WinDir%` file, `LTDMTest.INI`, goes at the top.
+  `tools/sfextract.py` unpacks it, checking every file against its record.
+  What setup itself runs as it installs is left out: it unpacks Tron's REZ
+  files into the game directory with a bundled `LithRez.exe` (Jupiter build
+  69's), and runs the WinRez LT Studio and XN Resource Editor installers.
+  The `tron_tools.zip` binaries in it are byte-identical to Monolith's.
+- The FTP dump's `.7z` is read by `tools/sevenzip.py` (no 7-Zip needed).
+  Its SHA-1 matches archive.org's
+  ([lith-tech-ftp-dump.-7z](https://archive.org/details/lith-tech-ftp-dump.-7z)).
+
+The NOLF and AvP2 tools, CJ's and Jupiter build 51 come off discs rez
+already fetches, so only the other four are kept in `devtools/`: the
+NOLF2 Toolkit (from ModDB), both Tron tool sets (Monolith's zip, and the
+v1.2a installer from TronFAQ), Jupiter build 69
+([archive.org](https://archive.org/details/Lithtech-Jupiter-System-Enterprise-Edition-Build-69))
+and the FTP dump.
+
+## Demos, patches, map packs and dev tools
+
+`demos/`, `patches/`, `mappacks/` and `devtools/` hold the released demos,
+updates, map packs and the dev tools above. Each one (an installer `.exe`, or an unpacked map pack's folder)
 is kept as a `.tar.xz` split into chunks of at most 45,000,000 bytes:
 `<item>.tar.xz.c001`, `.c002`, and so on. The chunks are what is committed.
 
@@ -378,8 +450,11 @@ packed them or when. Packing an item again gives the same bytes.
 | `isoextract.py` | ISO 9660 / Joliet reader, from `~/src/nolfsrc/tools` |
 | `hfsextract.py` | HFS / HFS+ reader for the Mac images (`--list`, or extract with AppleDouble `._` files) |
 | `viseextract.py` | Installer VISE 8 archive reader (`--list`, or extract, CRC-checked); its docstring describes the format |
-| `install.py` | the installers above (and the SDK's); `--list` shows the releases and their discs |
+| `install.py` | the installers above (the games', the SDK's and the dev tools'); `--list` shows the releases and their discs |
 | `ishdr.py` | an InstallShield 6/7 `data1.hdr`'s setup types, components and file groups, with each group's destination, language and files (compressed or on the disc) |
 | `sfxcab.py` | the Microsoft cabinet inside an InstallShield self-extractor (MSZIP or stored) → its files (`--list`, or extract) |
-| `pack-artifacts.sh` | an item of `demos/`, `patches/` or `mappacks/` → chunked `.tar.xz` (above) |
+| `sfextract.py` | a Setup Factory 6 installer → its files at their destinations (`--list`, or extract), CRC-checked; its docstring describes the format |
+| `blast/` | a PKWARE DCL "implode" decoder (a re-statement of zlib's `contrib/blast`) for `sfextract.py`, with a Makefile |
+| `sevenzip.py` | a 7z reader on Python's `lzma` (LZMA, LZMA2, BCJ, delta, copy), CRC-checked (`--list`, or extract) |
+| `pack-artifacts.sh` | an item of `demos/`, `patches/`, `mappacks/` or `devtools/` → chunked `.tar.xz` (above) |
 | `unshield/` | [unshield](https://github.com/twogood/unshield) 1.5.1 (MIT), vendored with a plain Makefile in place of CMake |

@@ -1,13 +1,15 @@
 #!/usr/bin/env bash
-# Put the demo, patch and map-pack archives back together from their chunks
-# (demos/, patches/ and mappacks/ hold <item>.tar.xz.c001, .c002, ...), as
+# Put the demo, patch, map-pack and dev-tool archives back together from
+# their chunks (demos/, patches/, mappacks/ and devtools/ hold
+# <item>.tar.xz.c001, .c002, ...), as
 # artifacts/<category>/<item>.tar.xz, and check each against
 # artifacts/SHA256SUMS. tools/pack-artifacts.sh makes the chunks.
 #
 #   ./assemble-artifacts.sh [name...]
 #
 # With no names, every archive; a name is an item (si_nolf2_demo.exe), its
-# path (demos/si_nolf2_demo.exe) or a category (demos, patches, mappacks).
+# path (demos/si_nolf2_demo.exe) or a category (demos, patches, mappacks,
+# devtools).
 # An archive already assembled and matching is left alone. Unpack one with
 # e.g. `tar -xJf artifacts/demos/si_nolf2_demo.exe.tar.xz -C <dir>`.
 set -euo pipefail

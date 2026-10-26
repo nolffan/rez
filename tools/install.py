@@ -1,17 +1,26 @@
 #!/usr/bin/env python3
 """Install the games off the disc images in isos/, as their setup programs
-would, into one directory per release.
+would, into one directory per release; and the LithTech dev tools (DEVTOOLS,
+below), off the discs and the archives in devtools/.
 
-  install.py [--force] <outdir> [name...]   install (default: every release)
-  install.py --verify <outdir> [name...]    check installed releases (default:
-                                            every one present in <outdir>)
+  install.py [--force] [--devtools] <outdir> [name...]
+                                            install (default: every game
+                                            release, or with --devtools every
+                                            dev tool release)
+  install.py --verify [--devtools] <outdir> [name...]
+                                            check installed releases (default:
+                                            every one present)
   install.py --list                         list the releases and their discs
   install.py --discs name...                the disc images those releases
                                             use (one per line; fetch-isos.sh)
 
-Each release is written to <outdir>/<name>/ (built in <outdir>/.<name>.tmp
-and renamed when complete, so a finished directory is always whole; an
-existing one is left alone unless --force). Nothing is run from the discs:
+Everything is installed under installed/: a game in <outdir> (install-games.sh
+passes installed/games), an SDK in installed/sdk, a dev tool release in
+installed/devtools. games/ and sdk/, where they used to be, are links into
+installed/ (a directory still there is moved into it first). Each release is
+written to <dir>/<name>/ (built in <dir>/.<name>.tmp and renamed when
+complete, so a finished directory is always whole; an existing one is left
+alone unless --force). Nothing is run from the discs:
 files are read straight out of the ISO 9660 images, and InstallShield
 cabinets are unpacked with tools/unshield.
 
@@ -75,6 +84,19 @@ install.reg: the registry values setup writes, for `wine regedit install.reg`.
           the cabinets lay it out. It goes in sdk/<name>/, not <outdir>,
           and is checked against sdk.sha256; it has no install.reg.
 
+The dev tool releases are installed the same way, by what their own
+installers say they copy, and get MANIFEST.txt only:
+
+  toolsetup  An InstallShield 6/7 setup (on a disc, in a self-extractor
+             tools/sfxcab.py unpacks, or in a zip): its setup type's
+             components, as for setup; one may go over another's install,
+             as an update does (base).
+  toolzip    A zip (or a folder of one) that is the release itself.
+  sfactory   A Setup Factory 6 installer (tools/sfextract.py): its payload
+             files at their destinations; %WinDir% ones go beside them.
+  sevenzip   A 7z archive (tools/sevenzip.py), with the zips in it unpacked
+             into folders of their names.
+
 A Mac install gets MANIFEST.txt only. nolf-ps2-usa and nolf-ps2-eu (the
 PlayStation 2 discs) and avp2-demo-usa (AvP2's demo disc) are listed only so
 that fetch-isos.sh can fetch them by name; they are not installed.
@@ -83,17 +105,21 @@ games.sha256 records a symbolic link by the SHA-256 of its target.
 """
 import fnmatch
 import hashlib
+import io
 import os
 import shutil
 import subprocess
 import sys
 import tarfile
+import zipfile
 from pathlib import Path, PureWindowsPath
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from hfsextract import Volume  # noqa: E402
 from ishdr import Header  # noqa: E402
 from isoextract import Iso  # noqa: E402
+from sevenzip import entries as sevenzip_entries  # noqa: E402
+from sfextract import read_setup as sfactory_files  # noqa: E402
 from sfxcab import read_cabinet  # noqa: E402
 from viseextract import Archive  # noqa: E402
 
@@ -102,9 +128,13 @@ ISOS = ROOT / "isos"
 UNSHIELD = ROOT / "tools" / "unshield" / "unshield"
 ARTIFACTS = ROOT / "artifacts"
 SUMS = ROOT / "games.sha256"
-# The SDKs (SDKS, below) are installed beside the games, not among them.
-SDK_DIR = ROOT / "sdk"
+INSTALLED = ROOT / "installed"
+# The SDKs (SDKS, below) and dev tools (DEVTOOLS) are installed beside the
+# games, not among them.
+SDK_DIR = INSTALLED / "sdk"
 SDK_SUMS = ROOT / "sdk.sha256"
+DEVTOOLS_DIR = INSTALLED / "devtools"
+DEVTOOLS_SUMS = ROOT / "devtools.sha256"
 
 NOLF1_USA_1 = "Operative, The - No One Lives Forever (USA) (Disc 1)"
 NOLF1_USA_2 = "Operative, The - No One Lives Forever (USA) (Disc 2)"
@@ -223,7 +253,46 @@ IMAGES_ONLY = {
 SDKS = {
     "lithtech-jupiter-51": ("sdk", [JUPITER_SDK], {"group": "Source Code"}),
 }
-ALL = {**RELEASES, **EXTRA, **IMAGES_ONLY, **SDKS}
+# The LithTech dev tools, as their installers install them. Those released
+# on a game disc are read off it (the European pressing where there is one);
+# the others are the archives in devtools/ (assemble-artifacts.sh).
+NOLF2_TOOLKIT = {"artifact": "devtools/si_nolf2_tools_en_10.exe", "member": "si_nolf2_tools_en_10.exe"}
+TRON_TOOLS = {"artifact": "devtools/tron2-tools-1.2a", "member": "tron2-tools-1.2a/tron_tools.zip"}
+TRON_TOOLS_12A = {"artifact": "devtools/tron2-tools-1.2a",
+                  "member": "tron2-tools-1.2a/tron20_tools_v1x2a_setup.zip",
+                  "inner": "tron20_tools_v1x2a_setup.exe"}
+JUPITER_B69 = {"artifact": "devtools/Jupiter System Enterprise Edition.zip",
+               "member": "Jupiter System Enterprise Edition.zip"}
+FTP_DUMP = {"artifact": "devtools/LithTech FTP Dump.7z", "member": "LithTech FTP Dump.7z"}
+DEVTOOLS = {
+    # NOLF Tools 001 (Jan 2001): setup copies the zip's Tools folder into
+    # NOLF's TOOLS; here it is the release.
+    "nolf-tools-001":     ("toolzip", [GOTY_2], {"source": {"file": "Game/NOLFTools001.exe"},
+                                                 "folder": "Tools"}),
+    # AvP2 Editing Tools v1.0 (Dec 2001), then Update 1 and Update 2 over it.
+    "avp2-tools":         ("toolsetup", [AVP2PH_EU], {"source": {"file": "Tools/avp2tools.exe"},
+                                                      "sfx": True, "type": "Typical"}),
+    "avp2-tools-update1": ("toolsetup", [AVP2PH_EU], {"source": {"file": "Tools/avp2tools_update.exe"},
+                                                      "sfx": True, "type": "Typical",
+                                                      "base": "avp2-tools"}),
+    "avp2-tools-update2": ("toolsetup", [AVP2PH_EU], {"source": {"file": "Tools/avp2tools_update2.exe"},
+                                                      "sfx": True, "type": "Typical",
+                                                      "base": "avp2-tools-update1"}),
+    # The LithTech Jupiter SDK, build 51 (Mar 2002): the whole "Typical"
+    # install (sdk/lithtech-jupiter-51 is only its source).
+    "jupiter-b51":        ("toolsetup", [JUPITER_SDK], {"type": "Typical"}),
+    "nolf2-toolkit":      ("toolsetup", [], {"source": NOLF2_TOOLKIT, "sfx": True, "type": "Patch"}),
+    "tron2-tools":        ("toolzip", [], {"source": TRON_TOOLS}),
+    "tron2-tools-1.2a":   ("sfactory", [], {"source": TRON_TOOLS_12A}),
+    # Contract J.A.C.K. Public Tools (Oct 2003), on CJ's disc 1.
+    "cjack-tools":        ("toolsetup", [CJ_EU[0]], {"source": {"file": "PublicToolsSetup.exe"},
+                                                     "sfx": True, "type": "Typical"}),
+    # Jupiter System Enterprise Edition, build 69 (2006): the tools' source.
+    "jupiter-b69":        ("toolsetup", [], {"source": JUPITER_B69, "folder": "nolf2_gpl_src",
+                                             "type": "Typical"}),
+    "lithtech-ftp-dump":  ("sevenzip", [], {"source": FTP_DUMP}),
+}
+ALL = {**RELEASES, **EXTRA, **IMAGES_ONLY, **SDKS, **DEVTOOLS}
 
 
 class Disc:
@@ -259,6 +328,32 @@ class Disc:
             self.iso.read_file(ext, sz, out)
         return p
 
+    def origin(self, path):
+        """What MANIFEST.txt says a file of this disc came from."""
+        return f"{self.name}.iso:{path}"
+
+
+class Folder(Disc):
+    """An unpacked installer's files, read like a disc's; `name` is where
+    the installer came from."""
+
+    def __init__(self, root, name):
+        self.name, self.root = name, Path(root)
+        self.files = {}
+        for f in sorted(self.root.rglob("*")):
+            if f.is_file():
+                rel = f.relative_to(self.root).as_posix()
+                self.files[rel.lower()] = (rel, f, f.stat().st_size)
+
+    def copy(self, path, dest):
+        p, src, _sz = self.files[path.lower()]
+        dest.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(src, dest)
+        return p
+
+    def origin(self, path):
+        return f"{self.name}:{path}"
+
 
 class MacDisc:
     """One Mac disc image: an HFS or HFS+ volume."""
@@ -279,11 +374,24 @@ class Install:
     def __init__(self, name, target):
         self.name, self.target = name, target
         self.manifest = {}
+        # With fold_case, a path differing only in case from one already
+        # installed is that one, as on Windows (an update over a release).
+        self.fold_case = False
+        self.names = {}
+
+    def place(self, rel):
+        """The path `rel` is installed as (see fold_case)."""
+        out = []
+        for part in rel.split("/"):
+            path = "/".join(out + [part])
+            out = (self.names.setdefault(path.lower(), path) if self.fold_case else path).split("/")
+        return "/".join(out)
 
     def put(self, disc, src, rel):
         """Copy disc file `src` to `rel` inside the install."""
+        rel = self.place(rel)
         p = disc.copy(src, self.target / rel)
-        self.manifest[rel] = f"{disc.name}.iso:{p}"
+        self.manifest[rel] = disc.origin(p)
 
     def copy_folder(self, disc, folder, dest="", pattern="*", recursive=False):
         files = disc.listdir(folder, pattern, recursive)
@@ -389,7 +497,7 @@ def extract_group(inst, work, hdr, group, origin, dest=""):
     for top in out.iterdir():              # unshield writes <dir>/<group>/...
         for f in sorted(top.rglob("*")):
             if f.is_file():
-                rel = str(Path(dest) / f.relative_to(top))
+                rel = inst.place(str(Path(dest) / f.relative_to(top)))
                 to = inst.target / rel
                 to.parent.mkdir(parents=True, exist_ok=True)
                 shutil.move(str(f), to)
@@ -420,7 +528,8 @@ def install_setup(inst, discs, lang, key, type=None, components=None, values=Non
     """The components of setup type `type` (or the list `components`), each
     file group into the folder data1.hdr gives it: compressed files out of
     the cabinets, uncompressed ones off the discs. A file installed twice
-    (two groups can carry it) is copied over, as setup would."""
+    (two groups can carry it) is copied over, as setup would. With no
+    registry `key`, there is no install.reg."""
     work, hdr, _groups = stage_cabinets(inst, discs)
     h = Header(hdr)
     origin = f"{discs[0].name}/data1.hdr"
@@ -446,7 +555,10 @@ def install_setup(inst, discs, lang, key, type=None, components=None, values=Non
                     sys.exit(f"install: {name}: {src} is on none of {inst.name}'s discs")
                 inst.put(disc, src, str(Path(sub) / f["path"].replace("\\", "/")))
     shutil.rmtree(work)
-    inst.write_extras({"InstallDir": None, **(values or {})}, key)
+    if key:
+        inst.write_extras({"InstallDir": None, **(values or {})}, key)
+    else:
+        inst.write_manifest()
     return len(inst.manifest)
 
 
@@ -548,19 +660,161 @@ def install_sdk(inst, discs, group):
     return n
 
 
+def tool_source(inst, discs, file=None, artifact=None, member=None, inner=None):
+    """A dev tool release's installer, as a file in a work directory beside
+    the install, and what MANIFEST.txt says it came from: `file` on the
+    release's disc, or `member` of the devtools/ archive `artifact`
+    (assembled first if need be); `inner` is a file in that zip."""
+    work = inst.target.parent / f".{inst.name}.src"
+    shutil.rmtree(work, ignore_errors=True)
+    work.mkdir()
+    if file:
+        dest = work / Path(file).name
+        origin = discs[0].origin(discs[0].copy(file, dest))
+    else:
+        archive = ARTIFACTS / f"{artifact}.tar.xz"
+        if not archive.exists():
+            subprocess.run([str(ROOT / "assemble-artifacts.sh"), artifact], check=True)
+        dest = work / Path(member).name
+        with tarfile.open(archive, "r:xz") as tar, tar.extractfile(member) as src, open(dest, "wb") as out:
+            shutil.copyfileobj(src, out, 1 << 20)
+        origin = f"{artifact}:{member}"
+    if inner:
+        with zipfile.ZipFile(dest) as z, z.open(inner) as src, open(work / inner, "wb") as out:
+            shutil.copyfileobj(src, out, 1 << 20)
+        dest, origin = work / inner, f"{origin}[{inner}]"
+    return work, dest, origin
+
+
+def install_toolsetup(inst, discs, type, source=None, sfx=False, folder=None, base=None):
+    """An InstallShield setup's `type`: on the disc itself, or in the
+    self-extractor or zip (its `folder`) that is `source`; with `base`, over
+    that release's install."""
+    if base:
+        install_into(inst, base)
+        inst.fold_case = True
+    if not source:
+        return install_setup(inst, discs, "0009", None, type=type)
+    work, path, origin = tool_source(inst, discs, **source)
+    media = work / "setup"
+    if sfx:
+        for name, blob in read_cabinet(path.read_bytes()):
+            dest = media / name
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            dest.write_bytes(blob)
+        media = next(media.rglob("data1.hdr")).parent
+    else:
+        with zipfile.ZipFile(path) as z:
+            z.extractall(media)
+        path.unlink()
+        media = media / folder
+    n = install_setup(inst, [Folder(media, origin)], "0009", None, type=type)
+    shutil.rmtree(work)
+    return n
+
+
+def install_toolzip(inst, discs, source, folder=None):
+    """The zip `source`, or its `folder`, as it is."""
+    work, path, origin = tool_source(inst, discs, **source)
+    pre = folder + "/" if folder else ""
+    with zipfile.ZipFile(path) as z:
+        for info in z.infolist():
+            if info.is_dir() or not info.filename.startswith(pre):
+                continue
+            rel = inst.place(info.filename[len(pre):])
+            dest = inst.target / rel
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            with z.open(info) as src, open(dest, "wb") as out:
+                shutil.copyfileobj(src, out, 1 << 20)
+            inst.manifest[rel] = f"{origin}[{info.filename}]"
+    shutil.rmtree(work)
+    inst.write_manifest()
+    return len(inst.manifest)
+
+
+def install_sfactory(inst, discs, source):
+    """A Setup Factory 6 installer's payload files at their destinations
+    (%AppDir% is the install; %WinDir% and the like go beside it). The
+    header files are setup's own, and what it runs as it installs."""
+    work, path, origin = tool_source(inst, discs, **source)
+    for kind, name, data in sfactory_files(str(path)):
+        if kind != "payload":
+            continue
+        folder, dest = name
+        rel = inst.place(dest)
+        (inst.target / rel).parent.mkdir(parents=True, exist_ok=True)
+        (inst.target / rel).write_bytes(data)
+        inst.manifest[rel] = f"{origin}[{folder}\\{dest.replace('/', chr(92))}]"
+    shutil.rmtree(work)
+    inst.write_manifest()
+    return len(inst.manifest)
+
+
+def install_sevenzip(inst, discs, source):
+    """A 7z archive's files, each zip in it unpacked into a folder of its
+    name (without .zip)."""
+    work, path, origin = tool_source(inst, discs, **source)
+    for name, is_dir, data in sevenzip_entries(str(path)):
+        name = name.replace("\\", "/")
+        if is_dir:
+            continue
+        if not name.lower().endswith(".zip"):
+            rel = inst.place(name)
+            (inst.target / rel).parent.mkdir(parents=True, exist_ok=True)
+            (inst.target / rel).write_bytes(data)
+            inst.manifest[rel] = f"{origin}[{name}]"
+            continue
+        with zipfile.ZipFile(io.BytesIO(data)) as z:
+            for info in z.infolist():
+                if info.is_dir():
+                    continue
+                rel = inst.place(f"{name[:-4]}/{info.filename.replace(chr(92), '/')}")
+                (inst.target / rel).parent.mkdir(parents=True, exist_ok=True)
+                (inst.target / rel).write_bytes(z.read(info))
+                inst.manifest[rel] = f"{origin}[{name}][{info.filename}]"
+    shutil.rmtree(work)
+    inst.write_manifest()
+    return len(inst.manifest)
+
+
+def install_into(inst, name):
+    """Install release `name` into `inst`; the number of files."""
+    kind, disc_names, opts = ALL[name]
+    disc_class = MacDisc if kind == "vise" else Disc
+    return INSTALLERS[kind](inst, [disc_class(d) for d in disc_names], **opts)
+
+
 INSTALLERS = {"is5": install_is5, "goty": install_goty, "cab": install_cab, "vise": install_vise,
-              "update": install_update, "sdk": install_sdk, "setup": install_setup}
+              "update": install_update, "sdk": install_sdk, "setup": install_setup,
+              "toolsetup": install_toolsetup, "toolzip": install_toolzip,
+              "sfactory": install_sfactory, "sevenzip": install_sevenzip}
 
 
 def sums(name):
     """The hash list a release is checked against: games.sha256, or
-    sdk.sha256 for an SDK."""
-    return SDK_SUMS if name in SDKS else SUMS
+    sdk.sha256 for an SDK, devtools.sha256 for a dev tool release."""
+    return SDK_SUMS if name in SDKS else DEVTOOLS_SUMS if name in DEVTOOLS else SUMS
 
 
 def home(outdir, name):
-    """The directory a release is installed in: <outdir>, or sdk/ for an SDK."""
-    return SDK_DIR if name in SDKS else outdir
+    """The directory a release is installed in: <outdir>, or installed/sdk
+    for an SDK, installed/devtools for a dev tool release."""
+    return SDK_DIR if name in SDKS else DEVTOOLS_DIR if name in DEVTOOLS else outdir
+
+
+def layout():
+    """installed/ and the links games -> installed/games and sdk ->
+    installed/sdk; a games/ or sdk/ directory from before is moved there.
+    The links keep the old paths working, install.reg's among them."""
+    for name in ("games", "sdk"):
+        old, new = ROOT / name, INSTALLED / name
+        if old.is_dir() and not old.is_symlink() and not new.exists():
+            new.parent.mkdir(parents=True, exist_ok=True)
+            old.rename(new)
+            print(f"== moved {name}/ to installed/{name}/")
+        new.mkdir(parents=True, exist_ok=True)
+        if not old.is_symlink() and not old.exists():
+            old.symlink_to(Path("installed") / name)
 
 
 def recorded(name):
@@ -615,8 +869,11 @@ def verify(name, d):
 def main():
     args = sys.argv[1:]
     if args == ["--list"]:
-        for name, (kind, discs, _o) in ALL.items():
-            print(f"{name:<18} {kind:<5} " + " + ".join(discs))
+        for name, (kind, discs, opts) in ALL.items():
+            src = opts.get("source", {})
+            what = " + ".join(discs) + (f": {src['file']}" if "file" in src else "")
+            what = what or src["artifact"] + (f": {src['member']}" if "/" in src["member"] else "")
+            print(f"{name:<20} {kind:<9} {what}")
         return
     if args[:1] == ["--discs"]:
         out = []
@@ -626,11 +883,14 @@ def main():
             out += [d for d in ALL[name][1] if d not in out]
         print("\n".join(out))
         return
+    layout()
+    tools = "--devtools" in args
+    args = [a for a in args if a != "--devtools"]
     if args[:1] == ["--verify"]:
         if len(args) < 2:
             sys.exit(__doc__)
         outdir = Path(args[1])
-        names = args[2:] or [n for n in ALL if (home(outdir, n) / n).is_dir()]
+        names = args[2:] or [n for n in ALL if (n in DEVTOOLS) == tools and (home(outdir, n) / n).is_dir()]
         if any(n in IMAGES_ONLY for n in names):
             sys.exit("install: the PlayStation 2 and demo discs are not installed")
         if not names:
@@ -651,7 +911,7 @@ def main():
     if not args:
         sys.exit(__doc__)
     outdir = Path(args[0])
-    names = args[1:] or list(RELEASES)
+    names = args[1:] or list(DEVTOOLS if tools else RELEASES)
     for name in names:
         if name not in ALL:
             sys.exit(f"install: unknown release {name} (see --list)")
@@ -668,10 +928,9 @@ def main():
         tmp = where / f".{name}.tmp"
         shutil.rmtree(tmp, ignore_errors=True)
         tmp.mkdir()
-        print(f"== {name} ({kind}: {' + '.join(disc_names)})", flush=True)
+        print(f"== {name} ({kind}: {' + '.join(disc_names) or opts['source']['artifact']})", flush=True)
         inst = Install(name, tmp)
-        disc_class = MacDisc if kind == "vise" else Disc
-        n = INSTALLERS[kind](inst, [disc_class(d) for d in disc_names], **opts)
+        n = install_into(inst, name)
         if verify(name, tmp) is False:
             sys.exit(f"install: {name} does not match {sums(name).name}; left in {tmp}")
         # install.reg names the final path, not the .tmp one.

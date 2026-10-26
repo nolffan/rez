@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# Pack items (a file or a directory under demos/, patches/ or mappacks/) for
+# Pack items (a file or a directory under demos/, patches/, mappacks/ or
+# devtools/) for
 # committing: each becomes one .tar.xz in artifacts/, recorded in
 # artifacts/SHA256SUMS, and split into chunks of at most 45,000,000 bytes
 # beside the item (<item>.tar.xz.c001, .c002, ...), which are what git keeps.
@@ -23,9 +24,10 @@ die() { echo "pack-artifacts: $*" >&2; exit 1; }
 pack() {
     local item="${1%/}" rel archive
     rel=$(realpath --relative-to="$ROOT" "$item")
-    case "$rel" in demos/*/* | patches/*/* | mappacks/*/*) die "$rel: pack the top-level item, not something inside it" ;;
-                   demos/* | patches/* | mappacks/*) ;;
-                   *) die "$rel: not in demos/, patches/ or mappacks/" ;; esac
+    case "$rel" in demos/*/* | patches/*/* | mappacks/*/* | devtools/*/*)
+                       die "$rel: pack the top-level item, not something inside it" ;;
+                   demos/* | patches/* | mappacks/* | devtools/*) ;;
+                   *) die "$rel: not in demos/, patches/, mappacks/ or devtools/" ;; esac
     [ -e "$ROOT/$rel" ] || die "$rel: no such file or directory"
     archive="$ROOT/artifacts/$rel.tar.xz"
     mkdir -p "$(dirname "$archive")"

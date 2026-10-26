@@ -474,6 +474,14 @@ item and records its archive's hash. The archives carry no owner names, and
 every file in them is dated 1970-01-01, so they say nothing about who
 packed them or when. Packing an item again gives the same bytes.
 
+AvP2's two map updates, `mappacks/avp2_en_sp1.exe` (Single Player Map
+Update 1) and `mappacks/avp2_en_mp1.exe` (Multiplayer Map Update 1), come
+from the PCGamingWiki community
+([206](https://community.pcgamingwiki.com/files/file/206-aliens-versus-predator-2-single-player-map-update-1/),
+[207](https://community.pcgamingwiki.com/files/file/207-aliens-versus-predator-2-multiplayer-map-update-1/)),
+each the only file in its zip. They are byte-identical to those in the
+Primal Hunt discs' `Updates` folders. They are kept, not installed.
+
 ## tools/
 
 | Tool | |

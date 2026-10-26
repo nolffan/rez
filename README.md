@@ -16,7 +16,7 @@ games, and the engine's later SDK with the tools' source (below).
 
 ```sh
 ./fetch-isos.sh        # ~23.7 GB of zips -> isos/, checked, converted to .iso
-./install-games.sh     # -> installed/games/<release>/ (~30 GB for all twenty-two), each checked
+./install-games.sh     # -> installed/games/<release>/ (~31 GB for all twenty-three), each checked
 ./install-devtools.sh  # -> installed/devtools/<release>/ (~4.1 GB for all eleven), each checked
 ```
 
@@ -117,6 +117,7 @@ the PS2 discs. `./fetch-isos.sh avp2-demo-usa` fetches it.
 | `avp2-usa` | AvP2 (USA) 1 + (USA, Asia) 2 | InstallShield 6 cabinets, setup type "Typical" |
 | `avp2-eu` | AvP2 (Europe) 1 + 2 | InstallShield 6 cabinets, setup type "Typical" |
 | `avp2-it` | AvP2 (Italy) 1 + 2 | InstallShield 6 cabinets, setup type "Typical", Italian |
+| `avp2-eu-1.0.9.6` | AvP2 (Europe) 1 + 2, with the English 1.0.9.6 patch | `avp2-eu`, then `patches/avp2_en_096.exe` |
 | `avp2-ph-usa` | AvP2: Primal Hunt (USA) | InstallShield 6 cabinets, setup type "Typical" |
 | `avp2-ph-eu` | AvP2: Primal Hunt (Europe) | InstallShield 6 cabinets, setup type "Typical" |
 | `avp2-ph-it` | AvP2: Primal Hunt (Italy) | InstallShield 6 cabinets, setup type "Typical", Italian |
@@ -183,7 +184,7 @@ each setup's own script and media.
   `InstallDir` and `NetRegionCode`, taken from the setup's string table.
 
 - **An update over a release** (`nolf2-eu-1.3`, `contract-jack-eu-1.1`,
-  `tron2-usa-1.030`): the base release's
+  `tron2-usa-1.030`, `avp2-eu-1.0.9.6`): the base release's
   install, then the update's files. NOLF2's 1.3 update
   (`patches/nolf2-update_1x3.exe`) is an InstallShield 6 setup inside a
   self-extractor, whose payload is one Microsoft cabinet holding the setup's
@@ -220,6 +221,21 @@ each setup's own script and media.
   [The Patches Scrolls](https://www.patches-scrolls.de/patch/4528/7) as
   `tron20v1030.zip` (SHA-256 `7fc527ea…7fc8`), which holds just this
   installer (Oct 2003) and a link to the site, left out.
+
+  AvP2's 1.0.9.6 patch (`avp2-eu-1.0.9.6`, `patches/avp2_en_096.exe`, Apr
+  2002) is its last, and includes the earlier ones. It is packed the same
+  way. Its one file group, `Update Files`, puts ten files over the install:
+  a new engine (`lithtech.exe`, `server.dll`, `d3d.ren`), dedicated server,
+  `AVP2DLL.REZ`, `AVP2L.REZ`, the new `AVP2P1.REZ`, `SierraUp.cfg` and two
+  readmes. Setup writes `Update Command Line` (`-rez AVP2P1.REZ`), which the
+  launcher reads. Its script also edits `SierraUp.cfg`, the Sierra
+  updater's settings, for some languages (the Spanish patch names its
+  `SuES.dll`); that is not reproduced, and the file is installed as the
+  patch ships it. The patch exists in six languages, all kept in
+  `patches/` (`avp2_{en,fr,de,it,es,kr}_096.exe`), from the
+  [PCGamingWiki community](https://community.pcgamingwiki.com/files/file/200-aliens-versus-predator-2-patch/)
+  (originally FilePlanet). The English and Italian ones are byte-identical
+  to those in the Primal Hunt discs' `Updates` folders.
 
 - **Installer VISE** (the Mac releases, MacPlay) is a single application
   whose data fork is a compressed archive; NOLF2's continues in `NOLF2

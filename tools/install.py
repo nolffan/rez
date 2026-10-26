@@ -228,6 +228,11 @@ RELEASES = {
     "avp2-usa":         ("setup", AVP2_USA, {"type": "Typical", "lang": "0009", "key": AVP2_KEY}),
     "avp2-eu":          ("setup", AVP2_EU, {"type": "Typical", "lang": "0009", "key": AVP2_KEY}),
     "avp2-it":          ("setup", AVP2_IT, {"type": "Typical", "lang": "0010", "key": AVP2_KEY}),
+    # AvP2 (Europe, English) at its last patch, 1.0.9.6, which includes the
+    # earlier ones.
+    "avp2-eu-1.0.9.6":  ("update", AVP2_EU, {"base": "avp2-eu", "patch": "patches/avp2_en_096.exe",
+                                             "group": "Update Files",
+                                             "values": {"Update Command Line": "-rez AVP2P1.REZ"}}),
     "avp2-ph-usa":      ("setup", [AVP2PH_USA], {"type": "Typical", "lang": "0009", "key": AVP2PH_KEY}),
     "avp2-ph-eu":       ("setup", [AVP2PH_EU], {"type": "Typical", "lang": "0009", "key": AVP2PH_KEY}),
     "avp2-ph-it":       ("setup", [AVP2PH_IT], {"type": "Typical", "lang": "0010", "key": AVP2PH_KEY}),

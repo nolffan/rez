@@ -60,14 +60,24 @@ install.reg: the registry values setup writes, for `wine regedit install.reg`.
           archive's top folder is the install directory. Resource forks and
           Finder info go in AppleDouble ._ files; symbolic links are made.
 
+  setup   Aliens versus Predator 2, Primal Hunt and Tron 2.0. InstallShield
+          cabinets whose setup type ("Typical"; Tron's script picks its
+          own components, "Recommended") names the components installed;
+          tools/ishdr.py reads them, and their file groups, out of
+          data1.hdr. A group's compressed files are unpacked with
+          tools/unshield; its uncompressed ones are copied off the disc.
+          Groups for another language, the Start menu or setup's own
+          support directory are left out; <WINSYSDIR> ones go beside the
+          game, as for cab.
+
   sdk     The LithTech Jupiter SDK: one InstallShield 6 file group of the
           SDK's CD image ("Source Code"), unpacked with tools/unshield as
           the cabinets lay it out. It goes in sdk/<name>/, not <outdir>,
           and is checked against sdk.sha256; it has no install.reg.
 
 A Mac install gets MANIFEST.txt only. nolf-ps2-usa and nolf-ps2-eu (the
-PlayStation 2 discs) are listed only so that fetch-isos.sh can fetch them by
-name; they are not installed.
+PlayStation 2 discs) and avp2-demo-usa (AvP2's demo disc) are listed only so
+that fetch-isos.sh can fetch them by name; they are not installed.
 
 games.sha256 records a symbolic link by the SHA-256 of its target.
 """
@@ -82,6 +92,7 @@ from pathlib import Path, PureWindowsPath
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from hfsextract import Volume  # noqa: E402
+from ishdr import Header  # noqa: E402
 from isoextract import Iso  # noqa: E402
 from sfxcab import read_cabinet  # noqa: E402
 from viseextract import Archive  # noqa: E402
@@ -116,6 +127,14 @@ CJ_EU = ["Contract J.A.C.K. (Europe) (Disc 1)", "Contract J.A.C.K. (Europe) (Dis
 PS2_USA = "ps2/Operative, The - No One Lives Forever (USA)"
 PS2_EU = "ps2/Operative, The - No One Lives Forever (Europe) (En,Fr,De,Es,It)"
 JUPITER_SDK = "sdk/LithEngine"
+AVP2_USA = ["Aliens Versus Predator 2 (USA) (Disc 1)", "Aliens Versus Predator 2 (USA, Asia) (Disc 2)"]
+AVP2_EU = ["Aliens Versus Predator 2 (Europe) (Disc 1)", "Aliens Versus Predator 2 (Europe) (Disc 2)"]
+AVP2_IT = ["Aliens Versus Predator 2 (Italy) (Disc 1)", "Aliens Versus Predator 2 (Italy) (Disc 2)"]
+AVP2_DEMO = "Aliens Versus Predator 2 (USA) (Demo)"
+AVP2PH_USA = "Aliens Versus Predator 2 - Primal Hunt (USA)"
+AVP2PH_EU = "Aliens Versus Predator 2 - Primal Hunt (Europe)"
+AVP2PH_IT = "Aliens Versus Predator 2 - Primal Hunt (Italy)"
+TRON_USA = ["Tron 2.0 (USA) (Disc 1)", "Tron 2.0 (USA) (Disc 2)"]
 MAC_NOLF1 = "mac/Operative, The - No One Lives Forever (USA) (Disc 1) (Game Disc)"
 MAC_NOLF2 = ["mac/No One Lives Forever 2 - A Spy in H.A.R.M.'s Way (USA) (Disc 1)",
              "mac/No One Lives Forever 2 - A Spy in H.A.R.M.'s Way (USA) (Disc 2)"]
@@ -123,6 +142,19 @@ MAC_NOLF2 = ["mac/No One Lives Forever 2 - A Spy in H.A.R.M.'s Way (USA) (Disc 1
 NOLF1_KEY = r"Software\Monolith Productions\No One Lives Forever\1.0"
 NOLF2_KEY = r"SOFTWARE\Monolith Productions\No One Lives Forever 2\1.0"
 CJ_KEY = r"SOFTWARE\Monolith Productions\Contract Jack\1.0"
+AVP2_KEY = r"SOFTWARE\Monolith Productions\Aliens vs. Predator 2\1.0"
+AVP2PH_KEY = r"SOFTWARE\Third Law Interactive\Aliens versus Predator 2: Primal Hunt\1.0"
+TRON_KEY = r"SOFTWARE\Monolith Productions\Tron 2.0\1.0"
+
+# Tron 2.0's "Recommended" install: its script, not its setup types (which
+# name only EREG), picks the components. All of the game's are installed;
+# DirectX and "Disc 2 Files" (the DirectX and Windows Media audio codec
+# installers setup runs) are not.
+TRON_COMPONENTS = [r"<Data>\Program Files", r"<Data>\Resources", r"<Data>\Optional Resources",
+                   r"<Data>\Uncompressed Files", r"<Data>\EREG",
+                   r"<Data>\System Files\MFC 6.2 Runtime\MFC Runtime",
+                   r"<Data>\System Files\MFC 6.2 Runtime\MFC Ansi",
+                   r"<Data>\System Files\MFC 6.2 Runtime\MFC Unicode"]
 
 # The GOTY setup's registry set (data1.hdr, "NOLF Registry Settings").
 GOTY_UPDATE = "-rez Nolfu003.rez -rez Nolfcres003.rez -rez NolfGoty.rez"
@@ -160,16 +192,29 @@ RELEASES = {
     "nolf-mac-usa":     ("vise", [MAC_NOLF1], {"segments": ["NOLF Installer"]}),
     "nolf2-mac-usa":    ("vise", MAC_NOLF2, {"segments": ["Install No One Lives Forever 2",
                                                          "NOLF2 Install Data"]}),
+    # Aliens versus Predator 2 ("Typical") and its expansion Primal Hunt,
+    # which setup puts in a directory of its own; its launcher finds AvP2's
+    # through AvP2's registry key.
+    "avp2-usa":         ("setup", AVP2_USA, {"type": "Typical", "lang": "0009", "key": AVP2_KEY}),
+    "avp2-eu":          ("setup", AVP2_EU, {"type": "Typical", "lang": "0009", "key": AVP2_KEY}),
+    "avp2-it":          ("setup", AVP2_IT, {"type": "Typical", "lang": "0010", "key": AVP2_KEY}),
+    "avp2-ph-usa":      ("setup", [AVP2PH_USA], {"type": "Typical", "lang": "0009", "key": AVP2PH_KEY}),
+    "avp2-ph-eu":       ("setup", [AVP2PH_EU], {"type": "Typical", "lang": "0009", "key": AVP2PH_KEY}),
+    "avp2-ph-it":       ("setup", [AVP2PH_IT], {"type": "Typical", "lang": "0010", "key": AVP2PH_KEY}),
+    "tron2-usa":        ("setup", TRON_USA, {"components": TRON_COMPONENTS, "lang": "0009", "key": TRON_KEY,
+                                             "values": {"NetRegionCode": "EN"}}),
 }
 EXTRA = {
     f"nolf-eu-{code}": ("is5", [NOLF1_EU_1, NOLF1_EU_2], {"lang": lang})
     for code, lang in (("fr", "French"), ("de", "German"), ("es", "Spanish"), ("sv", "Swedish"))
 }
-# The PlayStation 2 port, one DVD each. There is nothing to install: these
+# Images kept as they are: NOLF's PlayStation 2 port, one DVD each, and
+# AvP2's demo disc (two demo installers). There is nothing to install: these
 # only name the images for fetch-isos.sh.
-OTHER_PLATFORMS = {
+IMAGES_ONLY = {
     "nolf-ps2-usa": ("ps2", [PS2_USA], {}),
     "nolf-ps2-eu":  ("ps2", [PS2_EU], {}),
+    "avp2-demo-usa": ("demo", [AVP2_DEMO], {}),
 }
 # The LithTech Jupiter SDK (build 51, March 2002), the engine licensees' SDK:
 # its "Source Code" file group (NOLF2's game code and libraries as they then
@@ -178,7 +223,7 @@ OTHER_PLATFORMS = {
 SDKS = {
     "lithtech-jupiter-51": ("sdk", [JUPITER_SDK], {"group": "Source Code"}),
 }
-ALL = {**RELEASES, **EXTRA, **OTHER_PLATFORMS, **SDKS}
+ALL = {**RELEASES, **EXTRA, **IMAGES_ONLY, **SDKS}
 
 
 class Disc:
@@ -332,9 +377,10 @@ def stage_cabinets(inst, discs):
     return work, hdr, groups
 
 
-def extract_group(inst, work, hdr, group, origin):
-    """Unpack cabinet file group `group` into the install; `origin` is what
-    MANIFEST.txt says each file came from. Returns the number of files."""
+def extract_group(inst, work, hdr, group, origin, dest=""):
+    """Unpack cabinet file group `group` into the install (its folder
+    `dest`); `origin` is what MANIFEST.txt says each file came from.
+    Returns the number of files."""
     out = work / "x"
     shutil.rmtree(out, ignore_errors=True)
     subprocess.run([str(UNSHIELD), "-d", str(out), "-g", group, "x", hdr], check=True,
@@ -343,10 +389,10 @@ def extract_group(inst, work, hdr, group, origin):
     for top in out.iterdir():              # unshield writes <dir>/<group>/...
         for f in sorted(top.rglob("*")):
             if f.is_file():
-                rel = str(f.relative_to(top))
-                dest = inst.target / rel
-                dest.parent.mkdir(parents=True, exist_ok=True)
-                shutil.move(str(f), dest)
+                rel = str(Path(dest) / f.relative_to(top))
+                to = inst.target / rel
+                to.parent.mkdir(parents=True, exist_ok=True)
+                shutil.move(str(f), to)
                 inst.manifest[rel] = origin
                 n += 1
     return n
@@ -368,6 +414,40 @@ def install_cab(inst, discs, key, region, nolf2=False, **_):
         n += 1 + inst.copy_folder(d1, "Data", pattern="*.rez")
     inst.write_extras({"InstallDir": None, "NetRegionCode": region}, key)
     return n
+
+
+def install_setup(inst, discs, lang, key, type=None, components=None, values=None):
+    """The components of setup type `type` (or the list `components`), each
+    file group into the folder data1.hdr gives it: compressed files out of
+    the cabinets, uncompressed ones off the discs. A file installed twice
+    (two groups can carry it) is copied over, as setup would."""
+    work, hdr, _groups = stage_cabinets(inst, discs)
+    h = Header(hdr)
+    origin = f"{discs[0].name}/data1.hdr"
+    for comp in (h.setup_types[type] if type else components):
+        for name in h.components[comp]:
+            g = h.groups[name]
+            if g["language"] not in ("", "0", lang):
+                continue
+            where, _, sub = g["target"].partition("\\")
+            if where not in ("<TARGETDIR>", "<WINSYSDIR>"):
+                continue                # Start menu, setup's support files
+            if where == "<WINSYSDIR>":
+                sub = ""                # beside the game (see install_cab)
+            sub = sub.replace("\\", "/")
+            if any(f["compressed"] for f in g["files"]):
+                extract_group(inst, work, hdr, name, f"{origin}:[{name}] ({where})", sub)
+            for f in g["files"]:
+                if f["compressed"]:
+                    continue
+                src = "/".join(p for p in (g["source"], f["path"].replace("\\", "/")) if p)
+                disc = next((d for d in discs if d.has(src)), None)
+                if disc is None:
+                    sys.exit(f"install: {name}: {src} is on none of {inst.name}'s discs")
+                inst.put(disc, src, str(Path(sub) / f["path"].replace("\\", "/")))
+    shutil.rmtree(work)
+    inst.write_extras({"InstallDir": None, **(values or {})}, key)
+    return len(inst.manifest)
 
 
 def install_vise(inst, discs, segments):
@@ -469,7 +549,7 @@ def install_sdk(inst, discs, group):
 
 
 INSTALLERS = {"is5": install_is5, "goty": install_goty, "cab": install_cab, "vise": install_vise,
-              "update": install_update, "sdk": install_sdk}
+              "update": install_update, "sdk": install_sdk, "setup": install_setup}
 
 
 def sums(name):
@@ -551,8 +631,8 @@ def main():
             sys.exit(__doc__)
         outdir = Path(args[1])
         names = args[2:] or [n for n in ALL if (home(outdir, n) / n).is_dir()]
-        if any(n in OTHER_PLATFORMS for n in names):
-            sys.exit("install: the PlayStation 2 discs are not installed")
+        if any(n in IMAGES_ONLY for n in names):
+            sys.exit("install: the PlayStation 2 and demo discs are not installed")
         if not names:
             sys.exit(f"install: nothing installed in {outdir}")
         bad = 0
@@ -575,8 +655,8 @@ def main():
     for name in names:
         if name not in ALL:
             sys.exit(f"install: unknown release {name} (see --list)")
-        if name in OTHER_PLATFORMS:
-            sys.exit(f"install: {name} is a PlayStation 2 disc; there is nothing to install")
+        if name in IMAGES_ONLY:
+            sys.exit(f"install: {name} is kept as an image only; there is nothing to install")
     for name in names:
         where = home(outdir, name)
         where.mkdir(parents=True, exist_ok=True)

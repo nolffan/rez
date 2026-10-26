@@ -1,18 +1,20 @@
-# rez — the No One Lives Forever discs, installed
+# rez — the No One Lives Forever discs, and other LithTech games, installed
 
 Fetches the redump images of every PC release of *The Operative: No One
 Lives Forever*, *No One Lives Forever 2* and *Contract J.A.C.K.* from
 [archive.org/details/nolf-pc-redump](https://archive.org/details/nolf-pc-redump),
 and of the Mac releases of NOLF and NOLF2, and installs each release from
 them the way its own setup program would: one directory per release,
-holding everything the game runs with. It also fetches the discs of NOLF's
-PlayStation 2 port, which are kept as images only. Beside the games, it
-fetches the LithTech Jupiter SDK, NOLF2's engine generation, and installs
-its source into `sdk/` (below).
+holding everything the game runs with. The other LithTech games are
+installed the same way: *Aliens versus Predator 2* and its expansion
+*Primal Hunt* (below), and *Tron 2.0*. It also fetches the discs of NOLF's
+PlayStation 2 port and AvP2's demo disc, which are kept as images only.
+Beside the games, it fetches the LithTech Jupiter SDK, NOLF2's engine
+generation, and installs its source into `sdk/` (below).
 
 ```sh
-./fetch-isos.sh        # ~18.0 GB of zips -> isos/, checked, converted to .iso
-./install-games.sh     # -> games/<release>/ (~17 GB for all twelve), each checked
+./fetch-isos.sh        # ~23.7 GB of zips -> isos/, checked, converted to .iso
+./install-games.sh     # -> games/<release>/ (~28 GB for all twenty-one), each checked
 ```
 
 Both scripts take release names (the table below) to work on just those.
@@ -28,7 +30,7 @@ Requirements: `bash`, `curl`, `sha256sum`, `python3`, and a C compiler,
 
 ## isos/
 
-`isos/SHA256SUMS` lists the 25 zips, and the SDK's image (`isos/sdk/`,
+`isos/SHA256SUMS` lists the 38 zips, and the SDK's image (`isos/sdk/`,
 below), exactly as archive.org serves them. `fetch-isos.sh` checks every
 one against it before using it. Each PC zip
 holds a redump `.bin`/`.cue` with raw 2352-byte sectors. `tools/bin2iso.py` reads the
@@ -66,6 +68,23 @@ image's `.bin` matches redump's SHA-1. Redump has only NOLF's game disc,
 and no European Mac discs. They are installed as `nolf-mac-usa` and
 `nolf2-mac-usa` (below).
 
+### Aliens versus Predator 2 and Tron 2.0
+
+AvP2's and Primal Hunt's redump images come from
+[archive.org/details/avp-pc-redump](https://archive.org/details/avp-pc-redump),
+and Tron 2.0's from
+[archive.org/details/tron20usa](https://archive.org/details/tron20usa). Each
+zip's SHA-1 matches the one archive.org lists. They are PC `.bin`/`.cue`
+zips, kept in `isos/` beside NOLF's, and are converted the same way. Of the
+AvP item, only the LithTech games are fetched: AvP2 (USA, Europe, Italy),
+Primal Hunt (USA, its Alt dump, Europe, Italy) and the AvP2 demo disc. The
+16 discs of the first *Aliens Versus Predator* (1999, Rebellion's engine)
+are left out.
+
+The demo disc (`avp2-demo-usa`) holds two demo installers
+(`avp2spdemo.exe`, `avp2mpdemo2.exe`) and is kept as an image only, like
+the PS2 discs. `./fetch-isos.sh avp2-demo-usa` fetches it.
+
 ## games/
 
 | Release | Discs | Installer |
@@ -84,6 +103,13 @@ and no European Mac discs. They are installed as `nolf-mac-usa` and
 | `contract-jack-eu-1.1` | Contract J.A.C.K. (Europe) 1 + 2, with the English 1.1 update | `contract-jack-eu`, then `patches/contractjack_update_en_10_11.exe` |
 | `nolf-mac-usa` | NOLF (USA) Mac game disc | Installer VISE |
 | `nolf2-mac-usa` | NOLF2 (USA) Mac 1 + 2 | Installer VISE, two segments |
+| `avp2-usa` | AvP2 (USA) 1 + (USA, Asia) 2 | InstallShield 6 cabinets, setup type "Typical" |
+| `avp2-eu` | AvP2 (Europe) 1 + 2 | InstallShield 6 cabinets, setup type "Typical" |
+| `avp2-it` | AvP2 (Italy) 1 + 2 | InstallShield 6 cabinets, setup type "Typical", Italian |
+| `avp2-ph-usa` | AvP2: Primal Hunt (USA) | InstallShield 6 cabinets, setup type "Typical" |
+| `avp2-ph-eu` | AvP2: Primal Hunt (Europe) | InstallShield 6 cabinets, setup type "Typical" |
+| `avp2-ph-it` | AvP2: Primal Hunt (Italy) | InstallShield 6 cabinets, setup type "Typical", Italian |
+| `tron2-usa` | Tron 2.0 (USA) 1 + 2 | InstallShield 6 cabinets, "Recommended" |
 
 `nolf-eu-fr`, `nolf-eu-de`, `nolf-eu-es` and `nolf-eu-sv` are the other
 languages of the European NOLF discs. They are installed only when named.
@@ -184,6 +210,47 @@ each setup's own script and media.
   are made as links. Six of NOLF2's point at its developers' machines
   (`/Users/Shared/Omni/...`) and dangle, as they would on a Mac.
 
+- **InstallShield 6 cabinets by setup type** (AvP2, Primal Hunt, Tron 2.0)
+  keep what they install in `data1.hdr`. Setup types name components,
+  components name file groups, and each file group has a destination
+  (`<TARGETDIR>`, a folder under it, `<WINSYSDIR>`, the Start menu or
+  setup's own support directory) and a language. A group's files are
+  either compressed into the `dataN.cab` cabinets or uncompressed and
+  linked to the disc: AvP2's `AVP2.exe` and world REZ files
+  (`ALIEN.REZ`, `MARINE.REZ`, `PREDATOR.REZ`, `MULTI.REZ`) on disc 1's root,
+  Primal Hunt's launcher and its `Tools`, `Updates` and `Trailers` folders,
+  and Tron's `Tron.exe`, `TRON.chm` and `MFC42.DLL`. unshield does not show
+  the setup types, the destinations or the uncompressed files, so
+  `tools/ishdr.py` reads them. `install.py` installs each group of the
+  setup type's components into its folder: compressed files with
+  `tools/unshield`, uncompressed ones off the disc. Groups for another
+  language are skipped (the Italian releases take the Italian ones), and
+  so are the Start-menu and support-directory ones.
+  - AvP2 and Primal Hunt are installed as "Typical", the setup type that
+    copies everything, worlds included ("Compact" leaves them on the CD).
+    Primal Hunt's "Typical" also copies the disc's `Tools` (the AvP2 tools
+    installers), `Updates` (AvP2's patches, 0.92 to 0.96 and the SP/MP
+    packs) and `Trailers` (a NOLF2 trailer) folders into the install.
+  - Tron's setup types name only its registration component. Its script
+    picks the rest, as "Recommended" (every resource on the hard drive;
+    "Minimum" leaves some on the first CD). That is `TRON_COMPONENTS` in `install.py`: Program
+    Files, Resources, Optional Resources, the uncompressed files and EREG,
+    and the MFC 6 runtime (MFC42, MFC42U, MSVCP60, MSVCRT), which setup puts
+    in `<WINSYSDIR>` and which goes beside the game, as for NOLF2. "Disc 2
+    Files" (disc 2's DirectX and Windows Media audio codec installers) is
+    not installed.
+
+  The registry value is `InstallDir`, under `Monolith Productions\Aliens
+  vs. Predator 2\1.0`, `Third Law Interactive\Aliens versus Predator 2:
+  Primal Hunt\1.0` and `Monolith Productions\Tron 2.0\1.0`. Tron also gets
+  `NetRegionCode` (`EN`), as NOLF2 does.
+
+  Primal Hunt is an expansion, and its setup refuses AvP2's directory, so
+  it is a release of its own. Its launcher (`PrimalHunt.exe`) reads AvP2's
+  `InstallDir` and adds AvP2's REZ files (`AVP2.REZ`, `SOUNDS.REZ`, ...)
+  from there to the engine's command line. Import both releases' `install.reg` to
+  play it: an `avp2-*` and the matching `avp2-ph-*`.
+
 Left out: the DirectX, GameSpy Arcade, Windows Media and audio-codec
 installers that setup offers to run, and the Start-menu shortcuts.
 
@@ -217,6 +284,15 @@ Both are PowerPC builds, which no current Mac runs.
   release.
 - Between regions, NOLF2 and Contract J.A.C.K. differ only in their `.url`
   shortcuts.
+- Between regions, AvP2 Europe differs from the USA release only in
+  `EULA.txt` and `readme.txt`, and Primal Hunt Europe only in
+  `license.txt`. The Italian releases are localised: their own launcher,
+  server and REZ files (AvP2's `AVP2.REZ`, `SOUNDS.REZ`, `AVP2DLL.REZ` and
+  `AVP2L.REZ`; Primal Hunt's `AVP2L.REZ` and `DIALOGUE.REZ`), and Italian
+  patches in Primal Hunt's `Updates`. The engine is the same.
+- The Primal Hunt USA disc comes in two dumps (`(USA)` and `(USA) (Alt)`).
+  Both install byte-identical files, so `avp2-ph-usa` uses `(USA)`, and
+  the Alt image is only fetched.
 - The NOLF2 USA disc 2 comes in two dumps (`(Disc 2)` and `(Disc 2) (Alt)`).
   `nolf2-usa` uses `(Disc 2)`; the installed game does not depend on that
   disc's contents.
@@ -230,6 +306,10 @@ The retail executables are as shipped:
 - `NOLF.exe` (the launcher) of the 2000 release is SafeDisc-wrapped.
 - NOLF2's `Lithtech.exe` is SecuROM, and so is Contract J.A.C.K.'s.
 - The GOTY binaries and the 2000 release's `lithtech.exe` are unprotected.
+- AvP2's launcher `AVP2.exe` and Primal Hunt's `PrimalHunt.exe` are SecuROM
+  (`.cms_t`/`.cms_d` sections). Their engines (`lithtech.exe`) are not.
+- Tron 2.0's `Lithtech.exe` is SecuROM (setup's own messages say so). Its
+  launcher `Tron.exe` is not.
 
 Both NOLF1 trees were checked under Wine 9 (in `~/src/nolfsrc`'s build
 container). `lithtech.exe` loads `Worlds\T01S01` and keeps running. The
@@ -299,6 +379,7 @@ packed them or when. Packing an item again gives the same bytes.
 | `hfsextract.py` | HFS / HFS+ reader for the Mac images (`--list`, or extract with AppleDouble `._` files) |
 | `viseextract.py` | Installer VISE 8 archive reader (`--list`, or extract, CRC-checked); its docstring describes the format |
 | `install.py` | the installers above (and the SDK's); `--list` shows the releases and their discs |
+| `ishdr.py` | an InstallShield 6/7 `data1.hdr`'s setup types, components and file groups, with each group's destination, language and files (compressed or on the disc) |
 | `sfxcab.py` | the Microsoft cabinet inside an InstallShield self-extractor (MSZIP or stored) → its files (`--list`, or extract) |
 | `pack-artifacts.sh` | an item of `demos/`, `patches/` or `mappacks/` → chunked `.tar.xz` (above) |
 | `unshield/` | [unshield](https://github.com/twogood/unshield) 1.5.1 (MIT), vendored with a plain Makefile in place of CMake |

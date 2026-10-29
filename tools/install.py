@@ -98,8 +98,9 @@ installers say they copy, and get MANIFEST.txt only:
              into folders of their names.
 
 A Mac install gets MANIFEST.txt only. nolf-ps2-usa and nolf-ps2-eu (the
-PlayStation 2 discs) and avp2-demo-usa (AvP2's demo disc) are listed only so
-that fetch-isos.sh can fetch them by name; they are not installed.
+PlayStation 2 discs), avp2-demo-usa (AvP2's demo disc) and kiss-bonus-usa
+(KISS's F.A.K.K. 2 bonus disc) are listed only so that fetch-isos.sh can
+fetch them by name; they are not installed.
 
 games.sha256 records a symbolic link by the SHA-256 of its target.
 """
@@ -165,6 +166,17 @@ AVP2PH_USA = "Aliens Versus Predator 2 - Primal Hunt (USA)"
 AVP2PH_EU = "Aliens Versus Predator 2 - Primal Hunt (Europe)"
 AVP2PH_IT = "Aliens Versus Predator 2 - Primal Hunt (Italy)"
 TRON_USA = ["Tron 2.0 (USA) (Disc 1)", "Tron 2.0 (USA) (Disc 2)"]
+KISS_EU = "KISS Psycho Circus - The Nightmare Child (Europe)"
+KISS_DE = "KISS Psycho Circus - The Nightmare Child (Germany)"
+KISS_IT = "KISS Psycho Circus - The Nightmare Child (Italy) (Covermount)"
+KISS_USA = "KISS Psycho Circus - The Nightmare Child (USA)"
+KISS_BONUS = "KISS Psycho Circus - The Nightmare Child & Heavy Metal - F.A.K.K. 2 - Bonus Disc! (USA)"
+BLOOD2_EU = "Blood II - The Chosen (Europe)"
+BLOOD2_HU = "Blood II - The Chosen (Hungary)"
+BLOOD2_USA = "Blood II - The Chosen (USA)"
+BLOOD2_USA_1 = "Blood II - The Chosen (USA) (Rev 1)"
+BLOOD2_NL_EU = "Blood II - The Chosen - The Nightmare Levels (Europe)"
+BLOOD2_NL_USA = "Blood II - The Chosen - The Nightmare Levels (USA)"
 MAC_NOLF1 = "mac/Operative, The - No One Lives Forever (USA) (Disc 1) (Game Disc)"
 MAC_NOLF2 = ["mac/No One Lives Forever 2 - A Spy in H.A.R.M.'s Way (USA) (Disc 1)",
              "mac/No One Lives Forever 2 - A Spy in H.A.R.M.'s Way (USA) (Disc 2)"]
@@ -175,6 +187,10 @@ CJ_KEY = r"SOFTWARE\Monolith Productions\Contract Jack\1.0"
 AVP2_KEY = r"SOFTWARE\Monolith Productions\Aliens vs. Predator 2\1.0"
 AVP2PH_KEY = r"SOFTWARE\Third Law Interactive\Aliens versus Predator 2: Primal Hunt\1.0"
 TRON_KEY = r"SOFTWARE\Monolith Productions\Tron 2.0\1.0"
+# KISS's launcher reads its registry set under HKEY_CURRENT_USER.
+KISS_KEY = r"Software\Third Law Interactive\Psycho Circus Launcher\1.0"
+KISS_VALUES = {"RezInstalled": "1", "MusicInstalled": "1", "MoviesInstalled": "1"}
+BLOOD2_KEY = r"Software\Monolith Productions\Blood2\1.0"
 
 # Tron 2.0's "Recommended" install: its script, not its setup types (which
 # name only EREG), picks the components. All of the game's are installed;
@@ -246,6 +262,33 @@ RELEASES = {
                                               "values": {"UpdateNum": 2,
                                                          "UpdateCommandLine0": "-rez gamep3.rez",
                                                          "UpdateCommandLine1": "-rez gamep4.rez"}}),
+    # KISS Psycho Circus (Third Law): the "Complete" install, everything
+    # linked to the disc's Psycho and StrategyGuide folders.
+    "kiss-eu":          ("setup", [KISS_EU], {"type": "Complete", "lang": "0009", "key": KISS_KEY,
+                                              "values": KISS_VALUES, "path_value": "InstallPath",
+                                              "root": "HKEY_CURRENT_USER"}),
+    "kiss-de":          ("setup", [KISS_DE], {"type": "Complete", "lang": "0009", "key": KISS_KEY,
+                                              "values": KISS_VALUES, "path_value": "InstallPath",
+                                              "root": "HKEY_CURRENT_USER"}),
+    "kiss-it":          ("setup", [KISS_IT], {"type": "Complete", "lang": "0009", "key": KISS_KEY,
+                                              "values": KISS_VALUES, "path_value": "InstallPath",
+                                              "root": "HKEY_CURRENT_USER"}),
+    "kiss-usa":         ("setup", [KISS_USA], {"type": "Complete", "lang": "0009", "key": KISS_KEY,
+                                               "values": KISS_VALUES, "path_value": "InstallPath",
+                                               "root": "HKEY_CURRENT_USER"}),
+    # Blood II ("Normal Install": the GAME and DATA folders), and The
+    # Nightmare Levels, which its setup puts into Blood II's directory.
+    "blood2-eu":        ("folders", [BLOOD2_EU], {"folders": [(0, "GAME"), (0, "DATA")], "key": BLOOD2_KEY}),
+    "blood2-hu":        ("folders", [BLOOD2_HU], {"folders": [(0, "GAME"), (0, "DATA")], "key": BLOOD2_KEY}),
+    "blood2-usa":       ("folders", [BLOOD2_USA], {"folders": [(0, "GAME"), (0, "DATA")], "key": BLOOD2_KEY}),
+    # Rev 1 has a new BLOOD2.REZ, SOUND.REZ and help file.
+    "blood2-usa-rev1":  ("folders", [BLOOD2_USA_1], {"folders": [(0, "GAME"), (0, "DATA")], "key": BLOOD2_KEY}),
+    "blood2-eu-nightmares":  ("folders", [BLOOD2_EU, BLOOD2_NL_EU],
+                              {"base": "blood2-eu", "folders": [(1, "GAME"), (1, "DATA")],
+                               "key": BLOOD2_KEY, "values": {"Nightmares": 1}}),
+    "blood2-usa-nightmares": ("folders", [BLOOD2_USA_1, BLOOD2_NL_USA],
+                              {"base": "blood2-usa-rev1", "folders": [(1, "GAME"), (1, "DATA")],
+                               "key": BLOOD2_KEY, "values": {"Nightmares": 1}}),
 }
 EXTRA = {
     f"nolf-eu-{code}": ("is5", [NOLF1_EU_1, NOLF1_EU_2], {"lang": lang})
@@ -258,6 +301,7 @@ IMAGES_ONLY = {
     "nolf-ps2-usa": ("ps2", [PS2_USA], {}),
     "nolf-ps2-eu":  ("ps2", [PS2_EU], {}),
     "avp2-demo-usa": ("demo", [AVP2_DEMO], {}),
+    "kiss-bonus-usa": ("bonus", [KISS_BONUS], {}),
 }
 # The LithTech Jupiter SDK (build 51, March 2002), the engine licensees' SDK:
 # its "Source Code" file group (NOLF2's game code and libraries as they then
@@ -397,7 +441,8 @@ class Install:
         out = []
         for part in rel.split("/"):
             path = "/".join(out + [part])
-            out = (self.names.setdefault(path.lower(), path) if self.fold_case else path).split("/")
+            known = self.names.setdefault(path.lower(), path)
+            out = (known if self.fold_case else path).split("/")
         return "/".join(out)
 
     def put(self, disc, src, rel):
@@ -418,17 +463,22 @@ class Install:
             for rel in sorted(self.manifest, key=str.lower):
                 f.write(f"{rel}\t{self.manifest[rel]}\n")
 
-    def write_extras(self, values, key):
+    def write_extras(self, values, key, root="HKEY_LOCAL_MACHINE"):
         """MANIFEST.txt, and install.reg with `values` under HKLM\\`key` --
         both the native and the 32-bit (Wow6432Node) view, so it works in a
-        32- or 64-bit Wine prefix alike. A value that is an int is a DWORD."""
-        self.values, self.key = dict(values), key
+        32- or 64-bit Wine prefix alike -- or under HKCU\\`key` (`root`),
+        which has one view. A value that is an int is a DWORD; None is the
+        directory's own path."""
+        self.values, self.key, self.root = dict(values), key, root
         self.write_manifest()
         # Wine maps / to Z:, so this is the directory's own path.
         winpath = "Z:" + str(PureWindowsPath(self.target.parent.resolve() / self.name))
         lines = ["Windows Registry Editor Version 5.00", ""]
-        for view in (key, key.replace("\\", "\\Wow6432Node\\", 1)):
-            lines.append(f"[HKEY_LOCAL_MACHINE\\{view}]")
+        views = [key]
+        if root == "HKEY_LOCAL_MACHINE":
+            views.append(key.replace("\\", "\\Wow6432Node\\", 1))
+        for view in views:
+            lines.append(f"[{root}\\{view}]")
             for k, v in values.items():
                 if isinstance(v, int):
                     lines.append('"%s"=dword:%08x' % (k, v))
@@ -537,12 +587,14 @@ def install_cab(inst, discs, key, region, nolf2=False, **_):
     return n
 
 
-def install_setup(inst, discs, lang, key, type=None, components=None, values=None):
+def install_setup(inst, discs, lang, key, type=None, components=None, values=None,
+                  path_value="InstallDir", root="HKEY_LOCAL_MACHINE"):
     """The components of setup type `type` (or the list `components`), each
     file group into the folder data1.hdr gives it: compressed files out of
     the cabinets, uncompressed ones off the discs. A file installed twice
-    (two groups can carry it) is copied over, as setup would. With no
-    registry `key`, there is no install.reg."""
+    (two groups can carry it) is copied over, as setup would. install.reg
+    has the directory's path as `path_value` and `values` under `root`\\`key`;
+    with no `key`, there is no install.reg."""
     work, hdr, _groups = stage_cabinets(inst, discs)
     h = Header(hdr)
     origin = f"{discs[0].name}/data1.hdr"
@@ -569,9 +621,27 @@ def install_setup(inst, discs, lang, key, type=None, components=None, values=Non
                 inst.put(disc, src, str(Path(sub) / f["path"].replace("\\", "/")))
     shutil.rmtree(work)
     if key:
-        inst.write_extras({"InstallDir": None, **(values or {})}, key)
+        inst.write_extras({path_value: None, **(values or {})}, key, root)
     else:
         inst.write_manifest()
+    return len(inst.manifest)
+
+
+def install_folders(inst, discs, folders, key, values=None, base=None):
+    """InstallShield 5 scripts that copy whole folders of the disc into the
+    install directory (Blood II, The Nightmare Levels): each (disc index,
+    folder) of `folders`, subfolders and all, into its root. install.reg has
+    WorkingDirectory and `values` under `key`; with `base`, the folders go
+    over that release's install and the values join its."""
+    if base:
+        install_into(inst, base)
+        inst.fold_case = True
+        values = {**inst.values, **(values or {})}
+    else:
+        values = {"WorkingDirectory": None, **(values or {})}
+    for i, folder in folders:
+        inst.copy_folder(discs[i], folder, recursive=True)
+    inst.write_extras(values, key)
     return len(inst.manifest)
 
 
@@ -658,7 +728,7 @@ def install_update(inst, discs, base, patch, group, values):
                     inst.manifest[rel] = f"{patch}:[{g}]"
                     m += 1
     shutil.rmtree(work)
-    inst.write_extras({**inst.values, **values}, inst.key)
+    inst.write_extras({**inst.values, **values}, inst.key, inst.root)
     print(f"   {patch}: {m} files over {base}")
     return n
 
@@ -802,6 +872,7 @@ def install_into(inst, name):
 
 INSTALLERS = {"is5": install_is5, "goty": install_goty, "cab": install_cab, "vise": install_vise,
               "update": install_update, "sdk": install_sdk, "setup": install_setup,
+              "folders": install_folders,
               "toolsetup": install_toolsetup, "toolzip": install_toolzip,
               "sfactory": install_sfactory, "sevenzip": install_sevenzip}
 
@@ -908,7 +979,7 @@ def main():
         outdir = Path(args[1])
         names = args[2:] or [n for n in ALL if (n in DEVTOOLS) == tools and (home(outdir, n) / n).is_dir()]
         if any(n in IMAGES_ONLY for n in names):
-            sys.exit("install: the PlayStation 2 and demo discs are not installed")
+            sys.exit("install: the PlayStation 2, demo and bonus discs are not installed")
         if not names:
             sys.exit(f"install: nothing installed in {outdir}")
         bad = 0

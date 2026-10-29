@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # Fetch the redump images of No One Lives Forever, NOLF2, Contract J.A.C.K.,
-# Aliens Versus Predator 2 (with Primal Hunt) and Tron 2.0 into isos/, check
-# them against isos/SHA256SUMS, and turn each zipped .bin/.cue into a plain
+# Aliens Versus Predator 2 (with Primal Hunt), Tron 2.0, KISS Psycho Circus
+# and Blood II (with The Nightmare Levels) into isos/, check them against
+# isos/SHA256SUMS, and turn each zipped .bin/.cue into a plain
 # 2048-byte-sector .iso beside it. The PC discs of the NOLF games come from
 # https://archive.org/details/nolf-pc-redump; NOLF's PlayStation 2 discs
 # (isos/ps2/, whose zips hold an .iso that is just copied out) from
@@ -11,8 +12,10 @@
 # SDK (isos/sdk/, NOLF2's engine generation) is a plain .iso, from
 # https://archive.org/details/lithengine, and needs no converting. Aliens
 # Versus Predator 2 and Primal Hunt come from
-# https://archive.org/details/avp-pc-redump, and Tron 2.0 from
-# https://archive.org/details/tron20usa.
+# https://archive.org/details/avp-pc-redump, Tron 2.0 from
+# https://archive.org/details/tron20usa, KISS Psycho Circus from
+# https://archive.org/details/kiss-pc-redump, and Blood II from
+# https://archive.org/details/blood-pc-redump.
 #
 #   ./fetch-isos.sh [name...]            fetch whatever is missing, verify, convert
 #   ./fetch-isos.sh --verify [name...]   only check the images against SHA256SUMS
@@ -32,6 +35,8 @@ MAC_BASE="https://archive.org/download/REDUMP_Apple_-_Macintosh"
 SDK_BASE="https://archive.org/download/lithengine"
 AVP_BASE="https://archive.org/download/avp-pc-redump/AVP-PC-REDUMP"
 TRON_BASE="https://archive.org/download/tron20usa"
+KISS_BASE="https://archive.org/download/kiss-pc-redump/KISS-PC-REDUMP"
+BLOOD_BASE="https://archive.org/download/blood-pc-redump/BLOOD-PC-REDUMP"
 JOBS=${JOBS:-4}
 
 die() { echo "fetch-isos: $*" >&2; exit 1; }
@@ -83,6 +88,8 @@ fetch_one() {
         sdk/*) url="$SDK_BASE/$(urlencode "${z#*/}")" ;;
         "Aliens Versus Predator 2"*) url="$AVP_BASE/$(urlencode "$z")" ;;
         "Tron 2.0"*) url="$TRON_BASE/$(urlencode "$z")" ;;
+        "KISS Psycho Circus"*) url="$KISS_BASE/$(urlencode "$z")" ;;
+        "Blood II"*) url="$BLOOD_BASE/$(urlencode "$z")" ;;
         *)     url="$BASE/$(urlencode "$z")" ;;
     esac
     mkdir -p "$(dirname "$ISOS/$z")"
@@ -92,7 +99,7 @@ fetch_one() {
     echo "<- $z"
 }
 export -f fetch_one urlencode
-export ISOS BASE PS2_BASE MAC_BASE SDK_BASE AVP_BASE TRON_BASE
+export ISOS BASE PS2_BASE MAC_BASE SDK_BASE AVP_BASE TRON_BASE KISS_BASE BLOOD_BASE
 
 echo "== fetching ${#ZIPS[@]} images into $ISOS ($JOBS at a time)"
 printf '%s\0' "${ZIPS[@]}" | xargs -0 -n1 -P "$JOBS" bash -c 'fetch_one "$1"' _

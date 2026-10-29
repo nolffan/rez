@@ -7,16 +7,18 @@ and of the Mac releases of NOLF and NOLF2, and installs each release from
 them the way its own setup program would: one directory per release,
 holding everything the game runs with. The other LithTech games are
 installed the same way: *Aliens versus Predator 2* and its expansion
-*Primal Hunt* (below), and *Tron 2.0*. It also fetches the discs of NOLF's
-PlayStation 2 port and AvP2's demo disc, which are kept as images only.
+*Primal Hunt*, *Tron 2.0*, *KISS Psycho Circus: The Nightmare Child*, and
+*Blood II: The Chosen* with *The Nightmare Levels* (below). It also fetches
+the discs of NOLF's PlayStation 2 port, AvP2's demo disc and KISS's bonus
+disc, which are kept as images only.
 Beside the games, it fetches the LithTech Jupiter SDK, NOLF2's engine
 generation, and installs its source (below). And it keeps and installs the
 LithTech dev tools: every public release of the editing tools for these
 games, and the engine's later SDK with the tools' source (below).
 
 ```sh
-./fetch-isos.sh        # ~23.7 GB of zips -> isos/, checked, converted to .iso
-./install-games.sh     # -> installed/games/<release>/ (~31 GB for all twenty-three), each checked
+./fetch-isos.sh        # ~29.5 GB of zips -> isos/, checked, converted to .iso
+./install-games.sh     # -> installed/games/<release>/ (~37 GB for all thirty-three), each checked
 ./install-devtools.sh  # -> installed/devtools/<release>/ (~4.1 GB for all eleven), each checked
 ```
 
@@ -41,7 +43,7 @@ Requirements: `bash`, `curl`, `sha256sum`, `python3`, and a C compiler,
 
 ## isos/
 
-`isos/SHA256SUMS` lists the 38 zips, and the SDK's image (`isos/sdk/`,
+`isos/SHA256SUMS` lists the 49 zips, and the SDK's image (`isos/sdk/`,
 below), exactly as archive.org serves them. `fetch-isos.sh` checks every
 one against it before using it. Each PC zip
 holds a redump `.bin`/`.cue` with raw 2352-byte sectors. `tools/bin2iso.py` reads the
@@ -79,7 +81,7 @@ image's `.bin` matches redump's SHA-1. Redump has only NOLF's game disc,
 and no European Mac discs. They are installed as `nolf-mac-usa` and
 `nolf2-mac-usa` (below).
 
-### Aliens versus Predator 2 and Tron 2.0
+### Aliens versus Predator 2, Tron 2.0, KISS Psycho Circus and Blood II
 
 AvP2's and Primal Hunt's redump images come from
 [archive.org/details/avp-pc-redump](https://archive.org/details/avp-pc-redump),
@@ -95,6 +97,19 @@ are left out.
 The demo disc (`avp2-demo-usa`) holds two demo installers
 (`avp2spdemo.exe`, `avp2mpdemo2.exe`) and is kept as an image only, like
 the PS2 discs. `./fetch-isos.sh avp2-demo-usa` fetches it.
+
+KISS Psycho Circus's images come from
+[archive.org/details/kiss-pc-redump](https://archive.org/details/kiss-pc-redump)
+and Blood II's from
+[archive.org/details/blood-pc-redump](https://archive.org/details/blood-pc-redump),
+again only the LithTech games: KISS Psycho Circus (Europe, Germany, Italy
+covermount, USA, and the USA bundle's bonus disc), Blood II (Europe,
+Hungary, USA, USA Rev 1) and The Nightmare Levels (Europe, USA). Every
+zip's SHA-1 matches archive.org's. KISS Pinball and the original *Blood*
+(1997, the Build engine) with its add-ons are left out. The bonus disc
+(`kiss-bonus-usa`), from the USA bundle with *Heavy Metal: F.A.K.K. 2*, is a
+QuickTime multimedia disc (`GOD2000.EXE`), not the game, and is kept as an
+image only.
 
 ## installed/games/
 
@@ -123,6 +138,16 @@ the PS2 discs. `./fetch-isos.sh avp2-demo-usa` fetches it.
 | `avp2-ph-it` | AvP2: Primal Hunt (Italy) | InstallShield 6 cabinets, setup type "Typical", Italian |
 | `tron2-usa` | Tron 2.0 (USA) 1 + 2 | InstallShield 6 cabinets, "Recommended" |
 | `tron2-usa-1.030` | Tron 2.0 (USA) 1 + 2, with Update 2 (v1.030) | `tron2-usa`, then `patches/tron-update_v1x2_complete.exe` |
+| `kiss-eu` | KISS Psycho Circus (Europe) | InstallShield 6, setup type "Complete", files linked to the disc |
+| `kiss-de` | KISS Psycho Circus (Germany) | InstallShield 6, setup type "Complete", German |
+| `kiss-it` | KISS Psycho Circus (Italy) (Covermount) | InstallShield 6, setup type "Complete", Italian |
+| `kiss-usa` | KISS Psycho Circus (USA) | InstallShield 6, setup type "Complete" |
+| `blood2-eu` | Blood II (Europe) | InstallShield 5, "Normal Install" |
+| `blood2-hu` | Blood II (Hungary) | InstallShield 5, "Normal Install" |
+| `blood2-usa` | Blood II (USA) | InstallShield 5, "Normal Install" |
+| `blood2-usa-rev1` | Blood II (USA) (Rev 1) | InstallShield 5, "Normal Install" |
+| `blood2-eu-nightmares` | Blood II (Europe) + The Nightmare Levels (Europe) | `blood2-eu`, then The Nightmare Levels' setup over it |
+| `blood2-usa-nightmares` | Blood II (USA) (Rev 1) + The Nightmare Levels (USA) | `blood2-usa-rev1`, then The Nightmare Levels' setup over it |
 
 `nolf-eu-fr`, `nolf-eu-de`, `nolf-eu-es` and `nolf-eu-sv` are the other
 languages of the European NOLF discs. They are installed only when named.
@@ -253,8 +278,8 @@ each setup's own script and media.
   are made as links. Six of NOLF2's point at its developers' machines
   (`/Users/Shared/Omni/...`) and dangle, as they would on a Mac.
 
-- **InstallShield 6 cabinets by setup type** (AvP2, Primal Hunt, Tron 2.0)
-  keep what they install in `data1.hdr`. Setup types name components,
+- **InstallShield 6 cabinets by setup type** (AvP2, Primal Hunt, Tron 2.0,
+  KISS Psycho Circus) keep what they install in `data1.hdr`. Setup types name components,
   components name file groups, and each file group has a destination
   (`<TARGETDIR>`, a folder under it, `<WINSYSDIR>`, the Start menu or
   setup's own support directory) and a language. A group's files are
@@ -282,6 +307,15 @@ each setup's own script and media.
     in `<WINSYSDIR>` and which goes beside the game, as for NOLF2. "Disc 2
     Files" (disc 2's DirectX and Windows Media audio codec installers) is
     not installed.
+  - KISS Psycho Circus is installed as "Complete" (the game REZ, movies,
+    music and the strategy guide). Every one of its file groups is
+    uncompressed, linked to the disc's `Psycho` and `StrategyGuide` folders.
+    Its registry set (in `data1.hdr`) is `InstallPath`, and `RezInstalled`,
+    `MusicInstalled` and `MoviesInstalled` (`1`) for the components it
+    installed, under `Third Law Interactive\Psycho Circus Launcher\1.0` in
+    **`HKEY_CURRENT_USER`**, where the launcher `psycho.exe` reads them. It
+    only checks that `RezInstalled` exists, to take `PSYCHO.REZ` from the
+    install rather than the CD. Its `install.reg` writes that one view.
 
   The registry value is `InstallDir`, under `Monolith Productions\Aliens
   vs. Predator 2\1.0`, `Third Law Interactive\Aliens versus Predator 2:
@@ -294,8 +328,22 @@ each setup's own script and media.
   from there to the engine's command line. Import both releases' `install.reg` to
   play it: an `avp2-*` and the matching `avp2-ph-*`.
 
+- **InstallShield 5, whole folders** (Blood II, The Nightmare Levels):
+  the script copies disc folders, subfolders and all, into the install
+  directory. Blood II's "Normal Install" copies `GAME\*.*` (with `MUSIC`
+  and `PLAYERS`) and `DATA\*.*` (`BLOOD2.REZ`); its intro movies
+  (`MOVIES\`) are installed only by a "Custom" install, so are left out.
+  The registry value is `WorkingDirectory`, under `Monolith
+  Productions\Blood2\1.0`. The Nightmare Levels' setup requires Blood II:
+  it reads Blood II's `WorkingDirectory`, checks for `BLOOD2.REZ` there, and
+  copies its own `GAME\*.*` and `DATA\*.*` into Blood II's directory. Its
+  releases are a Blood II release with its disc over it (names matching as
+  on Windows), and its setup adds `Nightmares` (a DWORD, 1) to Blood II's
+  key. Its new `BLOOD2.EXE` replaces Blood II's.
+
 Left out: the DirectX, GameSpy Arcade, Windows Media and audio-codec
-installers that setup offers to run, and the Start-menu shortcuts.
+installers that setup offers to run, Blood II's registration with
+DirectPlay (for lobby launching), and the Start-menu shortcuts.
 
 ### The Mac releases
 
@@ -333,6 +381,17 @@ Both are PowerPC builds, which no current Mac runs.
   server and REZ files (AvP2's `AVP2.REZ`, `SOUNDS.REZ`, `AVP2DLL.REZ` and
   `AVP2L.REZ`; Primal Hunt's `AVP2L.REZ` and `DIALOGUE.REZ`), and Italian
   patches in Primal Hunt's `Updates`. The engine is the same.
+- Blood II (USA) (Rev 1) differs from the first USA dump in `BLOOD2.REZ`,
+  `SOUND.REZ` and the help file, so both are releases. Europe is Rev 1's
+  files but for `BLOOD2.EXE` (SafeDisc, with `BLOOD2.ICD` beside it), and
+  Hungary installs exactly Rev 1's (its disc adds an `Extras` folder setup
+  does not install: Acrobat Reader, a Hungarian manual, two patches). The
+  two Nightmare Levels discs carry the same files, so its two releases
+  differ only in the `BLOOD2.ICD` Blood II Europe leaves behind; The
+  Nightmare Levels (USA) goes over Rev 1.
+- KISS Psycho Circus Europe and USA differ in `client.exe` and `d3d.ren`;
+  Germany and Italy are localised (their own launcher, engine, game code,
+  `PSYCHO.REZ`, cinematics and texts).
 - The Primal Hunt USA disc comes in two dumps (`(USA)` and `(USA) (Alt)`).
   Both install byte-identical files, so `avp2-ph-usa` uses `(USA)`, and
   the Alt image is only fetched.
@@ -353,6 +412,12 @@ The retail executables are as shipped:
   (`.cms_t`/`.cms_d` sections). Their engines (`lithtech.exe`) are not.
 - Tron 2.0's `Lithtech.exe` is SecuROM (setup's own messages say so), and
   so is Update 2's. Its launcher `Tron.exe` is not.
+- KISS Psycho Circus's engine `client.exe` has two extra sections, `icd1`
+  and `icd2`, in Europe and Germany (a disc check, not identified here); in
+  the USA and Italy it has none. The launcher `psycho.exe` is plain.
+- Blood II's `BLOOD2.EXE` is SafeDisc in Europe only (`BLOOD2.ICD` holds
+  the real program); the USA and Hungarian ones, and The Nightmare Levels'
+  (which replaces it), are unprotected. Its engine is `CLIENT.EXE`.
 
 Both NOLF1 trees were checked under Wine 9 (in `~/src/nolfsrc`'s build
 container). `lithtech.exe` loads `Worlds\T01S01` and keeps running. The

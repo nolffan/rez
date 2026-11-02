@@ -17,7 +17,8 @@ below), off the discs and the archives in devtools/.
 Everything is installed under installed/: a game in <outdir> (install-games.sh
 passes installed/games), an SDK in installed/sdk, a dev tool release in
 installed/devtools. games/ and sdk/, where they used to be, are links into
-installed/ (a directory still there is moved into it first). Each release is
+installed/ (a directory still there is moved into it first, by an install;
+--verify changes nothing, and fails a release with no hashes recorded). Each release is
 written to <dir>/<name>/ (built in <dir>/.<name>.tmp and renamed when
 complete, so a finished directory is always whole; an existing one is left
 alone unless --force). Nothing is run from the discs:
@@ -970,13 +971,20 @@ def main():
             out += [d for d in ALL[name][1] if d not in out]
         print("\n".join(out))
         return
-    layout()
     tools = "--devtools" in args
     args = [a for a in args if a != "--devtools"]
     if args[:1] == ["--verify"]:
+        # A check changes nothing: no layout() here. An SDK still in the
+        # old sdk/ directory (not yet moved into installed/) is checked
+        # where it is.
+        global SDK_DIR
+        if not SDK_DIR.is_dir() and (ROOT / "sdk").is_dir():
+            SDK_DIR = ROOT / "sdk"
         if len(args) < 2:
             sys.exit(__doc__)
         outdir = Path(args[1])
+        if not outdir.is_dir() and outdir.name == "games" and (ROOT / "games").is_dir():
+            outdir = ROOT / "games"
         names = args[2:] or [n for n in ALL if (n in DEVTOOLS) == tools and (home(outdir, n) / n).is_dir()]
         if any(n in IMAGES_ONLY for n in names):
             sys.exit("install: the PlayStation 2, demo and bonus discs are not installed")
@@ -997,6 +1005,7 @@ def main():
     args = [a for a in args if a != "--force"]
     if not args:
         sys.exit(__doc__)
+    layout()
     outdir = Path(args[0])
     names = args[1:] or list(DEVTOOLS if tools else RELEASES)
     for name in names:

@@ -322,6 +322,7 @@ TRON_TOOLS_12A = {"artifact": "devtools/tron2-tools-1.2a",
 JUPITER_B69 = {"artifact": "devtools/Jupiter System Enterprise Edition.zip",
                "member": "Jupiter System Enterprise Edition.zip"}
 FTP_DUMP = {"artifact": "devtools/LithTech FTP Dump.7z", "member": "LithTech FTP Dump.7z"}
+TRON_DEVBUILD = {"artifact": "devtools/Tron devbuild.zip", "member": "Tron devbuild.zip"}
 DEVTOOLS = {
     # NOLF Tools 001 (Jan 2001): setup copies the zip's Tools folder into
     # NOLF's TOOLS; here it is the release.
@@ -349,6 +350,10 @@ DEVTOOLS = {
     "jupiter-b69":        ("toolsetup", [], {"source": JUPITER_B69, "folder": "nolf2_gpl_src",
                                              "type": "Typical"}),
     "lithtech-ftp-dump":  ("sevenzip", [], {"source": FTP_DUMP}),
+    # A Tron 2.0 developer build (2003-08-05; archive.org "tron-devbuild"):
+    # the game as Monolith ran it in-house, unprotected, with its console;
+    # its zip's TRON DEVBUILD folder is the release.
+    "tron2-devbuild":     ("toolzip", [], {"source": TRON_DEVBUILD, "folder": "TRON DEVBUILD"}),
 }
 ALL = {**RELEASES, **EXTRA, **IMAGES_ONLY, **SDKS, **DEVTOOLS}
 

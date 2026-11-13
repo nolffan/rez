@@ -19,7 +19,7 @@ games, and the engine's later SDK with the tools' source (below).
 ```sh
 ./fetch-isos.sh        # ~29.5 GB of zips -> isos/, checked, converted to .iso
 ./install-games.sh     # -> installed/games/<release>/ (~37 GB for all thirty-three), each checked
-./install-devtools.sh  # -> installed/devtools/<release>/ (~4.1 GB for all eleven), each checked
+./install-devtools.sh  # -> installed/devtools/<release>/ (~6.3 GB for all twelve), each checked
 ```
 
 Everything installed goes under `installed/`: `installed/games/`,
@@ -486,6 +486,7 @@ would. Those released on a game disc are read off the disc images (run
 | `cjack-tools` | Contract J.A.C.K. Public Tools (Oct 2003) | CJ (Europe) disc 1, `PublicToolsSetup.exe` | InstallShield 6 self-extractor, "Typical" |
 | `jupiter-b69` | Jupiter System Enterprise Edition, build 69 (2006): the engine and the tools' full source | `devtools/` | InstallShield set in a zip, "Typical" |
 | `lithtech-ftp-dump` | a dump of LithTech's FTP site: the 1998 LithTech 1.x SDK (`ltsdk242`), a 1998 dev setup (`os_ltdev`), Shogo-era Max tools (`New3DMax`), two promo videos | `devtools/` | 7z, with its zips unpacked |
+| `tron2-devbuild` | Tron 2.0 developer build (2003-08-05): the game as built in-house, unprotected engine and console, no symbols | `devtools/` | the zip itself, its `TRON DEVBUILD` folder |
 
 Each gets a `MANIFEST.txt` saying which image or archive, and which file in
 it, every file came from, and is checked against `devtools.sha256` like a
@@ -513,11 +514,13 @@ game. There is no `install.reg`. Notes:
   ([lith-tech-ftp-dump.-7z](https://archive.org/details/lith-tech-ftp-dump.-7z)).
 
 The NOLF and AvP2 tools, CJ's and Jupiter build 51 come off discs rez
-already fetches, so only the other four are kept in `devtools/`: the
+already fetches, so only the other five are kept in `devtools/`: the
 NOLF2 Toolkit (from ModDB), both Tron tool sets (Monolith's zip, and the
 v1.2a installer from TronFAQ), Jupiter build 69
-([archive.org](https://archive.org/details/Lithtech-Jupiter-System-Enterprise-Edition-Build-69))
-and the FTP dump.
+([archive.org](https://archive.org/details/Lithtech-Jupiter-System-Enterprise-Edition-Build-69)),
+the FTP dump, and the Tron 2.0 developer build
+([archive.org](https://archive.org/details/tron-devbuild); its zip's SHA-1
+matches archive.org's, `c041b82c1450a84844ac493cc10e5cd3b416757b`).
 
 ## Demos, patches, map packs and dev tools
 
